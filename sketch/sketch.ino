@@ -43,21 +43,27 @@ uint8_t teapotPacket[14] = {
 unsigned long currentTime, newTime, dt;
 
 //Angles
-double gyroAngleX = 0.0, gyroAngleY = 0.0, gyroAngleZ = 0.0, accAngleX = 0.0, accAngleY = 0.0, accAngleZ = 0.0;
-double compAngleX = 0.0, compAngleY = 0.0;
+//float gyroAngleX = 0.0, gyroAngleY = 0.0, gyroAngleZ = 0.0;
+//float compAngleX = 0.0, compAngleY = 0.0;
+float accAngleX = 0.0, accAngleY = 0.0;
+
+//angular velocities
+float gyro_v_x = 0.0, gyro_v_y = 0.0, gyro_v_z = 0.0;
+float acc_v_x = 0.0, acc_v_y = 0.0, acc_v_z = 0.0;
+float comp_v_x = 0.0, comp_v_y = 0.0;
 
 //Quaternion to send to computer and converted values
 Quaternion q;
 uint16_t w, x, y, z;
 
 //Values from MPU
-double ax, ay, az, gx, gy, gz;
+float ax, ay, az, gx, gy, gz;
 
 //Drift
-double drift = 0.0, driftAngle = 0.0;
+float drift_x = 0.0, drift_y = 0.0, drift_z = 0.0;
 
 //Function to get current values from MPU
-void getCurrentValuesFromMPU(double *a_x, double *a_y, double *a_z, double *g_x, double *g_y, double *g_z);
+void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z);
 
 void setup()
 {
@@ -70,9 +76,11 @@ void setup()
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
   
-  double prev_gz = gz;
+  float prev_gz = gz;
   
   Serial.println("Calibrating...");
+  
+  float drift_angle_x = 0.0, drift_angle_y = 0.0, drift_angle_z = 0.0;
   
   unsigned long startTime;
   
@@ -89,28 +97,32 @@ void setup()
     
     getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
     
-    driftAngle += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
+    drift_angle_x += gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
+    drift_angle_y += gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
+    drift_angle_z += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
     
     currentTime = newTime;
   }
-  
-  drift = driftAngle / CALIBRATION_TIME;
+
+  drift_x = drift_angle_x / CALIBRATION_TIME;
+  drift_y = drift_angle_y / CALIBRATION_TIME;  
+  drift_z = drift_angle_z / CALIBRATION_TIME;
   
   Serial.print("Done. Drift:\t");
-  Serial.print(drift * 10000000.0);
+  Serial.print(drift_z * 10000000.0);
   Serial.print("e-7\tDrift angle:\t");
-  Serial.println(driftAngle);
+  Serial.println(drift_angle_z);
   Serial.println();
   
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
   
   #ifndef READABLE
-  gyroAngleX = gx;
-  gyroAngleY = gy;
+//  gyroAngleX = gx;
+//  gyroAngleY = gy;
   #endif
   
-  compAngleX = gx;
-  compAngleY = gy;
+//  compAngleX = gx;
+//  compAngleY = gy;
 
   currentTime = micros();
   newTime = 0;
@@ -137,27 +149,34 @@ void loop()
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
 
-  double gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
-  double gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
+  float gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x * dt;
+  float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y * dt;
+  float gyroDeltaZ = gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z * dt;
 
-  gyroAngleX += gyroDeltaX;  
-  gyroAngleY += gyroDeltaY;  
-  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
+//  gyroAngleX += gyroDeltaX;
+//  gyroAngleY += gyroDeltaY;
+//  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
+
+//  gyro_v_x = gx / MPU6050_GYROSCOPE_SCALE_FACTOR;
+//  gyro_v_y = gy / MPU6050_GYROSCOPE_SCALE_FACTOR;
+//  gyro_v_z = gz / MPU6050_GYROSCOPE_SCALE_FACTOR;
 
   accAngleX = atan2(ay, az) * RAD_TO_DEG;
   accAngleY = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
-
+  
 #ifdef DEBUG
   Serial.print(accAngleX); 
   Serial.print("\t");
   Serial.println(accAngleY);
 #endif
 
-  compAngleX = 0.96 * (compAngleX + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
-  compAngleY = 0.96 * (compAngleY + gyroDeltaY) + 0.04 * accAngleY;
+//  compAngleX = 0.96 * (compAngleX + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
+//  compAngleY = 0.96 * (compAngleY + gyroDeltaY) + 0.04 * accAngleY;
 
   //  q.setByAngles(gyroAngleX, gyroAngleY, gyroAngleZ);
-  q.setByAngles(compAngleX, compAngleY, gyroAngleZ);
+//  q.setByAngles(compAngleX, compAngleY, gyroAngleZ);
+  q = q.rotateByAngularVelocity(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
+  
   float tempx, tempy, tempz;
   q.getAngles(&tempx, &tempy, &tempz);
   
@@ -186,11 +205,11 @@ void loop()
 
 #endif //DEBUG
 
-  Serial.print(gyroAngleX); 
+  Serial.print(gyroDeltaX); 
   Serial.print("\t");
-  Serial.print(gyroAngleY); 
+  Serial.print(gyroDeltaY); 
   Serial.print("\t");
-  Serial.print(gyroAngleZ); 
+  Serial.print(gyroDeltaZ); 
   Serial.println("\t");
 
 //  Serial.print(q.w); 
@@ -244,7 +263,7 @@ void loop()
 #endif //READABLE
 }
 
-void getCurrentValuesFromMPU(double *a_x, double *a_y, double *a_z, double *g_x, double *g_y, double *g_z){
+void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z){
   int8_t ax_h = dev -> readRegister(MPU6050_ACCEL_X_AXIS_HIGH_REGISTER);
   int8_t ax_l = dev -> readRegister(MPU6050_ACCEL_X_AXIS_LOW_REGISTER);
   int16_t ax = (((int16_t)ax_h) << 8) + ax_l;
@@ -269,10 +288,10 @@ void getCurrentValuesFromMPU(double *a_x, double *a_y, double *a_z, double *g_x,
   int8_t gz_l = dev -> readRegister(MPU6050_GYRO_Z_AXIS_LOW_REGISTER);
   int16_t gz = (((int16_t)gz_h) << 8) + gz_l;
   
-  (*a_x) = (double) ax;
-  (*a_y) = (double) ay;
-  (*a_z) = (double) az;
-  (*g_x) = (double) gx;
-  (*g_y) = (double) gy;
-  (*g_z) = (double) gz;
+  (*a_x) = (float) ax;
+  (*a_y) = (float) ay;
+  (*a_z) = (float) az;
+  (*g_x) = (float) gx;
+  (*g_y) = (float) gy;
+  (*g_z) = (float) gz;
 }

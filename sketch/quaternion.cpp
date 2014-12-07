@@ -7,6 +7,28 @@ Quaternion::Quaternion()
   y = 0.0f;
   z = 0.0f; 
 }
+
+Quaternion::Quaternion(float w, float x, float y, float z)
+{
+  this->w = w;
+  this->x = x;
+  this->y = y;
+  this->z = z;
+}
+
+Quaternion Quaternion::fromRotationVector(float vx, float vy, float vz)
+{
+  float v_norm = sqrt(vx*vx + vy*vy + vz*vz);
+  
+  float s = sin(v_norm * 0.5) / v_norm;
+  
+  return Quaternion(
+    cos(v_norm * 0.5),
+    vx * s,
+    vy * s,
+    vz * s
+  );
+}
    
 void Quaternion::setByAngles(float phi, float theta, float psi)
 {
@@ -30,4 +52,19 @@ void Quaternion::getAngles(float *phi, float *theta, float *psi)
   (*phi) *= (180.0 / M_PI);
   (*theta) *= (180.0 / M_PI);
   (*psi) *= (180.0 / M_PI);
+}
+
+Quaternion Quaternion::operator*(Quaternion q)
+{
+  return Quaternion(
+    w*q.w - x*q.x - y*q.y - z*q.z,  // new w
+    w*q.x + x*q.w + y*q.z - z*q.y,  // new x
+    w*q.y - x*q.z + y*q.w + z*q.x,  // new y (+ + -)?
+    w*q.z + x*q.y - y*q.x + z*q.w); // new z (- + +)?
+}
+
+Quaternion Quaternion::rotateByAngularVelocity(float vx, float vy, float vz)
+{
+  Quaternion q_rot = fromRotationVector(vx, vy, vz);
+  return q_rot * (*this);
 }
