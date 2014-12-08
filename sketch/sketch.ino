@@ -29,7 +29,7 @@
 #define MIN_DT                              100      //in us
 #define CALIBRATION_TIME                    8000000  //in us
 
-//#define READABLE
+#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
@@ -210,16 +210,16 @@ void loop()
   Serial.print(gyroDeltaY); 
   Serial.print("\t");
   Serial.print(gyroDeltaZ); 
-  Serial.println("\t");
+  Serial.print("\t");
 
-//  Serial.print(q.w); 
-//  Serial.print("\t");
-//  Serial.print(q.x); 
-//  Serial.print("\t");
-//  Serial.print(q.y); 
-//  Serial.print("\t");
-//  Serial.print(q.z); 
-//  Serial.print("\n");
+  Serial.print(q.w); 
+  Serial.print("\t");
+  Serial.print(q.x); 
+  Serial.print("\t");
+  Serial.print(q.y); 
+  Serial.print("\t");
+  Serial.print(q.z); 
+  Serial.print("\n");
 
 #else
 

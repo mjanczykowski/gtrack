@@ -18,16 +18,52 @@ Quaternion::Quaternion(float w, float x, float y, float z)
 
 Quaternion Quaternion::fromRotationVector(float vx, float vy, float vz)
 {
-  float v_norm = sqrt(vx*vx + vy*vy + vz*vz);
-  
-  float s = sin(v_norm * 0.5) / v_norm;
-  
-  return Quaternion(
-    cos(v_norm * 0.5),
-    vx * s,
-    vy * s,
-    vz * s
+  Quaternion qx(
+    cos(vx * 0.5),
+    sin(vx * 0.5),
+    0,
+    0
   );
+  
+  Quaternion qy(
+    cos(vy * 0.5),
+    0,
+    sin(vy * 0.5),
+    0
+  );
+  
+  Quaternion qz(
+    cos(vz * 0.5),
+    0,
+    0,
+    sin(vz * 0.5)
+  );
+  
+  return qx * qy * qz;
+  
+  
+//  float c1 = cos(vy), c2 = cos(vx), c3 = cos(vz);
+//  float s1 = sin(vy * 0.5), s2 = sin(vx * 0.5), s3 = sin(vz * 0.5);
+//  float c1c2 = c1 * c2;
+//  float s1s2 = s1 * s2;
+//  
+//  return Quaternion(
+//    c1c2*c3 - s1s2*s3,
+//    c1c2*s3 + s1s2*c3,
+//    s1*c2*c3 + c1*s2*s3,
+//    c1*s2*c3 - s1*c2*s3
+//  );
+  
+//  float v_norm = sqrt(vx*vx + vy*vy + vz*vz);
+//  
+//  float s = sin(v_norm * 0.5) / v_norm;
+//  
+//  return Quaternion(
+//    cos(v_norm * 0.5),
+//    vx * s,
+//    vy * s,
+//    vz * s
+//  );
 }
    
 void Quaternion::setByAngles(float phi, float theta, float psi)
