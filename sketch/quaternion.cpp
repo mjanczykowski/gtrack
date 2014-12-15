@@ -42,8 +42,8 @@ Quaternion Quaternion::fromRotationVector(float vx, float vy, float vz)
   return qx * qy * qz;
   
   
-//  float c1 = cos(vy), c2 = cos(vx), c3 = cos(vz);
-//  float s1 = sin(vy * 0.5), s2 = sin(vx * 0.5), s3 = sin(vz * 0.5);
+//  float c1 = cos(vy), c2 = cos(vz), c3 = cos(vx);
+//  float s1 = sin(vy * 0.5), s2 = sin(vz * 0.5), s3 = sin(vx * 0.5);
 //  float c1c2 = c1 * c2;
 //  float s1s2 = s1 * s2;
 //  
@@ -102,5 +102,5 @@ Quaternion Quaternion::operator*(Quaternion q)
 Quaternion Quaternion::rotateByAngularVelocity(float vx, float vy, float vz)
 {
   Quaternion q_rot = fromRotationVector(vx, vy, vz);
-  return q_rot * (*this);
+  return (*this) * q_rot;
 }

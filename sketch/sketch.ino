@@ -1,5 +1,6 @@
 #include "i2c.h"
 #include "quaternion.h"
+#include "kalman_filter.h"
 #include <math.h>
 #include <inttypes.h>
 
@@ -26,14 +27,21 @@
 
 #define MPU6050_GYROSCOPE_SCALE_FACTOR      131.0
 
-#define MIN_DT                              100      //in us
+#define MIN_DT                              10000   //in us
 #define CALIBRATION_TIME                    8000000  //in us
 
-#define READABLE
+#define KALMAN_Q_ANGLE                      0.001
+#define KALMAN_Q_GYROBIAS                   0.003
+#define KALMAN_R_ANGLE                      0.03
+
+//#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
 I2CDevice *dev;
+
+//Kalman filters - X and Y axis
+KalmanFilter *kalmanX, *kalmanY;
 
 //We send teapot packet to Processing MPU DPM demo
 uint8_t teapotPacket[14] = {
@@ -69,23 +77,23 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println();
-  
+
   dev = new I2CDevice(MPU6050_I2C_ADDRESS, I2C_BITRATE);
   dev -> writeRegister(MPU6050_IDLE_REGISTER, 0);
   dev -> writeRegister(MPU6050_GYROSCOPE_CONTROL_REGISTER, 0);
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
-  
+
   float prev_gz = gz;
-  
+
   Serial.println("Calibrating...");
-  
+
   float drift_angle_x = 0.0, drift_angle_y = 0.0, drift_angle_z = 0.0;
-  
+
   unsigned long startTime;
-  
+
   startTime = currentTime = micros();
-  
+
   while((newTime = micros()) - startTime < CALIBRATION_TIME)
   {
     dt = newTime - currentTime;
@@ -94,38 +102,56 @@ void setup()
     {
       continue;
     }
-    
+
     getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
-    
+
     drift_angle_x += gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
     drift_angle_y += gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
     drift_angle_z += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
-    
+
     currentTime = newTime;
   }
 
   drift_x = drift_angle_x / CALIBRATION_TIME;
   drift_y = drift_angle_y / CALIBRATION_TIME;  
   drift_z = drift_angle_z / CALIBRATION_TIME;
-  
-  Serial.print("Done. Drift:\t");
-  Serial.print(drift_z * 10000000.0);
+
+  Serial.print("Done.\nOX: Drift:\t");
+  Serial.print(drift_x * 10000000.0);
   Serial.print("e-7\tDrift angle:\t");
+  Serial.println(drift_angle_x);
+  Serial.print("OY: Drift:\t");
+  Serial.print(drift_y * 10000000.0);
+  Serial.print("e-7\tDrift angle:\t");
+  Serial.println(drift_angle_y);
+  Serial.print("OZ: Drift:\t");
+  Serial.print(drift_z * 10000000.0);
+  Serial.print("e-7\t\tDrift angle:\t");
   Serial.println(drift_angle_z);
   Serial.println();
-  
+
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
-  
-  #ifndef READABLE
-//  gyroAngleX = gx;
-//  gyroAngleY = gy;
-  #endif
-  
-//  compAngleX = gx;
-//  compAngleY = gy;
+
+#ifndef READABLE
+  //  gyroAngleX = gx;
+  //  gyroAngleY = gy;
+#endif
+
+  //  compAngleX = gx;
+  //  compAngleY = gy;
 
   currentTime = micros();
   newTime = 0;
+
+  //Compute roll and pitch from accel (in degrees)
+
+  float roll = atan2(ay, az) * RAD_TO_DEG;
+  float pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;  
+
+  //Create Kalman filters
+
+  kalmanX = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, roll);
+  kalmanY = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, pitch);
 }
 
 void loop()
@@ -153,37 +179,42 @@ void loop()
   float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y * dt;
   float gyroDeltaZ = gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z * dt;
 
-//  gyroAngleX += gyroDeltaX;
-//  gyroAngleY += gyroDeltaY;
-//  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
+  //  gyroAngleX += gyroDeltaX;
+  //  gyroAngleY += gyroDeltaY;
+  //  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
 
-//  gyro_v_x = gx / MPU6050_GYROSCOPE_SCALE_FACTOR;
-//  gyro_v_y = gy / MPU6050_GYROSCOPE_SCALE_FACTOR;
-//  gyro_v_z = gz / MPU6050_GYROSCOPE_SCALE_FACTOR;
+  gyro_v_x = gx / MPU6050_GYROSCOPE_SCALE_FACTOR;
+  gyro_v_y = gy / MPU6050_GYROSCOPE_SCALE_FACTOR;
+  //  gyro_v_z = gz / MPU6050_GYROSCOPE_SCALE_FACTOR;
 
   accAngleX = atan2(ay, az) * RAD_TO_DEG;
   accAngleY = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
-  
+
 #ifdef DEBUG
   Serial.print(accAngleX); 
   Serial.print("\t");
   Serial.println(accAngleY);
 #endif
 
-//  compAngleX = 0.96 * (compAngleX + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
-//  compAngleY = 0.96 * (compAngleY + gyroDeltaY) + 0.04 * accAngleY;
+  //  compAngleX = 0.96 * (compAngleX + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
+  //  compAngleY = 0.96 * (compAngleY + gyroDeltaY) + 0.04 * accAngleY;
 
   //  q.setByAngles(gyroAngleX, gyroAngleY, gyroAngleZ);
-//  q.setByAngles(compAngleX, compAngleY, gyroAngleZ);
+  //  q.setByAngles(compAngleX, compAngleY, gyroAngleZ);
   q = q.rotateByAngularVelocity(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
-  
+
   float tempx, tempy, tempz;
   q.getAngles(&tempx, &tempy, &tempz);
-  
+
 #ifdef DEBUG
 
-  Serial.print(tempx); Serial.print("\t"); Serial.print(tempy); Serial.print("\t"); Serial.print(tempz); Serial.print("\n\n");
-  
+  Serial.print(tempx); 
+  Serial.print("\t"); 
+  Serial.print(tempy); 
+  Serial.print("\t"); 
+  Serial.print(tempz); 
+  Serial.print("\n\n");
+
 #endif
 
 #ifdef READABLE
@@ -219,6 +250,9 @@ void loop()
   Serial.print(q.y); 
   Serial.print("\t");
   Serial.print(q.z); 
+  
+  Serial.print("\t\t");
+  Serial.print(dt);
   Serial.print("\n");
 
 #else
@@ -236,7 +270,7 @@ void loop()
   teapotPacket[7] = ((uint8_t)(y & 0xFF));
   teapotPacket[8] = ((uint8_t)(z >> 8));
   teapotPacket[9] = ((uint8_t)(z & 0xFF));
-  
+
 #ifndef DEBUG
 
   Serial.write(teapotPacket, 14);
@@ -287,7 +321,7 @@ void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, flo
   int8_t gz_h = dev -> readRegister(MPU6050_GYRO_Z_AXIS_HIGH_REGISTER);
   int8_t gz_l = dev -> readRegister(MPU6050_GYRO_Z_AXIS_LOW_REGISTER);
   int16_t gz = (((int16_t)gz_h) << 8) + gz_l;
-  
+
   (*a_x) = (float) ax;
   (*a_y) = (float) ay;
   (*a_z) = (float) az;
@@ -295,3 +329,5 @@ void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, flo
   (*g_y) = (float) gy;
   (*g_z) = (float) gz;
 }
+
+
