@@ -4,7 +4,7 @@
 #include <math.h>
 #include <inttypes.h>
 
-#define I2C_BITRATE                         100000
+#define I2C_BITRATE                         200000
 
 #define MPU6050_I2C_ADDRESS                 0x68
 #define MPU6050_IDLE_REGISTER               0x6b
@@ -27,14 +27,14 @@
 
 #define MPU6050_GYROSCOPE_SCALE_FACTOR      131.0
 
-#define MIN_DT                              10000   //in us
+#define MIN_DT                              100   //in us
 #define CALIBRATION_TIME                    8000000  //in us
 
 #define KALMAN_Q_ANGLE                      0.001
 #define KALMAN_Q_GYROBIAS                   0.003
 #define KALMAN_R_ANGLE                      0.03
 
-//#define READABLE
+#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
@@ -52,7 +52,7 @@ unsigned long currentTime, newTime, dt;
 
 //Angles
 //float gyroAngleX = 0.0, gyroAngleY = 0.0, gyroAngleZ = 0.0;
-//float compAngleX = 0.0, compAngleY = 0.0;
+float compAngleX = 0.0, compAngleY = 0.0;
 float accAngleX = 0.0, accAngleY = 0.0;
 
 //angular velocities
@@ -61,8 +61,11 @@ float acc_v_x = 0.0, acc_v_y = 0.0, acc_v_z = 0.0;
 float comp_v_x = 0.0, comp_v_y = 0.0;
 
 //Quaternion to send to computer and converted values
-Quaternion q;
+Quaternion q, q2;
 uint16_t w, x, y, z;
+
+int i = 0;
+long time = 0;
 
 //Values from MPU
 float ax, ay, az, gx, gy, gz;
@@ -137,8 +140,8 @@ void setup()
   //  gyroAngleY = gy;
 #endif
 
-  //  compAngleX = gx;
-  //  compAngleY = gy;
+  //compAngleX = gx;
+  //compAngleY = gy;
 
   currentTime = micros();
   newTime = 0;
@@ -152,6 +155,8 @@ void setup()
 
   kalmanX = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, roll);
   kalmanY = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, pitch);
+  
+  time = micros();
 }
 
 void loop()
@@ -196,15 +201,24 @@ void loop()
   Serial.println(accAngleY);
 #endif
 
-  //  compAngleX = 0.96 * (compAngleX + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
-  //  compAngleY = 0.96 * (compAngleY + gyroDeltaY) + 0.04 * accAngleY;
+  float yaw, pitch, roll;
+  
+  q.getPRYAngles(&pitch, &roll, &yaw);
+
+  compAngleX = 0.999 * (pitch + gyroDeltaX) + 0.001 * accAngleX - pitch; // Calculate the angle using a Complimentary filter
+  compAngleY = 0.999 * (roll + gyroDeltaY) + 0.001 * accAngleY - roll;
 
   //  q.setByAngles(gyroAngleX, gyroAngleY, gyroAngleZ);
   //  q.setByAngles(compAngleX, compAngleY, gyroAngleZ);
   q = q.rotateByAngularVelocity(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
+  //q = q.rotateByAngularVelocity(compAngleX * DEG_TO_RAD, compAngleY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
+  q.getPRYAngles(&pitch, &roll, &yaw);
+  q2.setByAngles(0, 0, 0);
+  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
+
 
   float tempx, tempy, tempz;
-  q.getAngles(&tempx, &tempy, &tempz);
+  //q.getAngles(&tempx, &tempy, &tempz);
 
 #ifdef DEBUG
 
@@ -218,42 +232,74 @@ void loop()
 #endif
 
 #ifdef READABLE
+  
+  if(i % 101 == 100) {
+    i = 0;
+  } else {
+    i++;
+    return;
+  }
 
 #ifdef DEBUG
 
-  Serial.print(ax); 
+  Serial.print(ax, 8); 
   Serial.print("\t");
-  Serial.print(ay); 
+  Serial.print(ay, 8); 
   Serial.print("\t");
-  Serial.print(az); 
+  Serial.print(az, 8); 
   Serial.print("\t");
-  Serial.print(gx); 
+  Serial.print(gx, 8); 
   Serial.print("\t");
-  Serial.print(gy); 
+  Serial.print(gy, 8); 
   Serial.print("\t");
-  Serial.print(gz); 
+  Serial.print(gz, 8); 
   Serial.print("\n");
 
 #endif //DEBUG
 
-  Serial.print(gyroDeltaX); 
+  /*Serial.print(gyroDeltaX, 8); 
   Serial.print("\t");
-  Serial.print(gyroDeltaY); 
+  Serial.print(gyroDeltaY, 8); 
   Serial.print("\t");
-  Serial.print(gyroDeltaZ); 
+  Serial.print(gyroDeltaZ, 8); 
   Serial.print("\t");
-
-  Serial.print(q.w); 
+  */
+  Serial.print(pitch, 8); 
   Serial.print("\t");
-  Serial.print(q.x); 
+  Serial.print(roll, 8); 
   Serial.print("\t");
-  Serial.print(q.y); 
-  Serial.print("\t");
-  Serial.print(q.z); 
+  Serial.print(yaw, 8); 
+  Serial.print("\t"); /*
   
+  Serial.print(accAngleX, 8);
+  Serial.print("\t");
+  Serial.print(accAngleY, 8);
+  Serial.print("\t"); */
+
+  Serial.print(q.w, 8); 
+  Serial.print("\t");
+  Serial.print(q.x, 8); 
+  Serial.print("\t");
+  Serial.print(q.y, 8); 
+  Serial.print("\t");
+  Serial.print(q.z, 8); 
+  
+  Serial.print("\t");
+  Serial.print(q2.w, 8); 
+  Serial.print("\t");
+  Serial.print(q2.x, 8); 
+  Serial.print("\t");
+  Serial.print(q2.y, 8); 
+  Serial.print("\t");
+  Serial.print(q2.z, 8); 
+  
+  
+  /*
   Serial.print("\t\t");
-  Serial.print(dt);
+  Serial.print((micros() - time)/100.0, 8);*/
   Serial.print("\n");
+  
+  time = micros();
 
 #else
 
@@ -277,9 +323,9 @@ void loop()
 
 #else
 
-  Serial.print(q.w * 16384.0); 
+  Serial.print(q.w * 16384.0, 8); 
   Serial.print("\t");
-  Serial.print(w); 
+  Serial.print(w, 8); 
   Serial.print("\t");
   Serial.print(teapotPacket[2]); 
   Serial.print("\t");

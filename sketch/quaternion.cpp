@@ -78,12 +78,24 @@ void Quaternion::setByAngles(float phi, float theta, float psi)
   y = cos(a)*sin(b)*cos(c) + sin(a)*cos(b)*sin(c);
   z = cos(a)*cos(b)*sin(c) - sin(a)*sin(b)*cos(c);
 }
-    
-void Quaternion::getAngles(float *phi, float *theta, float *psi)
+
+void Quaternion::getGravity(float *gx, float *gy, float *gz)
 {
-  (*phi) = atan(2.0 * (w * x + y * z) / (1.0 - 2.0 * (x*x + y*y)));
-  (*theta) = asin(2.0 * (w * y - z * x));
-  (*psi) = atan(2.0 * (w * z + x * y) / (1.0 - 2.0 * (y*y + z*z)));
+  *gx = 2 * (x*z - w*y);
+  *gy = 2 * (w*x + y*z);
+  *gz = w*w - x*x - y*y + z*z;
+}
+    
+void Quaternion::getPRYAngles(float *phi, float *theta, float *psi)
+{
+  float gx, gy, gz;
+  getGravity(&gx, &gy, &gz);
+  // yaw: (about Z axis)
+  *psi = atan2(2*x*y - 2*w*z, 2*w*w + 2*x*x - 1);
+  // pitch: (nose up/down, about Y axis)
+  *theta = atan(gx / sqrt(gy*gy + gz*gz));
+  // roll: (tilt left/right, about X axis)
+  *phi = atan(gy / sqrt(gx*gx + gz*gz));
    
   (*phi) *= (180.0 / M_PI);
   (*theta) *= (180.0 / M_PI);

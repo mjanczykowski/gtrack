@@ -17,9 +17,10 @@ class Quaternion
     
     Quaternion operator*(Quaternion q);
     
-    void setByAngles(float phi, float theta, float psi);  //Euler
-    void getAngles(float *phi, float *theta, float *psi); //Euler   
+    void setByAngles(float phi, float theta, float psi);
+    void getPRYAngles(float *phi, float *theta, float *psi);   
     Quaternion rotateByAngularVelocity(float vx, float vy, float vz);
+    void getGravity(float *gx, float *gy, float *gz);
 };
 
 #endif /* QUATERNION_H */
