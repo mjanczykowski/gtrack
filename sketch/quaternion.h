@@ -16,11 +16,14 @@ class Quaternion
     static Quaternion fromRotationVector(float vx, float vy, float vz);
     
     Quaternion operator*(Quaternion q);
+    static Quaternion average(Quaternion q, float q_weight, Quaternion p, float p_weight);
     
     void setByAngles(float phi, float theta, float psi);
+    void getAngles(float *phi, float *theta, float *psi);
     void getPRYAngles(float *phi, float *theta, float *psi);   
-    Quaternion rotateByAngularVelocity(float vx, float vy, float vz);
+    Quaternion rotateByAngles(float vx, float vy, float vz);
     void getGravity(float *gx, float *gy, float *gz);
+    void normalize();
 };
 
 #endif /* QUATERNION_H */

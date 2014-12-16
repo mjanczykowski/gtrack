@@ -73,10 +73,38 @@ void Quaternion::setByAngles(float phi, float theta, float psi)
   float b = theta * M_PI / 360.0; // Theta / 2.0
   float c = psi * M_PI / 360.0;   // Psi / 2.0
   
-  w = cos(a)*cos(b)*cos(c) + sin(a)*sin(b)*sin(c);
-  x = sin(a)*cos(b)*cos(c) - cos(a)*sin(b)*sin(c);
-  y = cos(a)*sin(b)*cos(c) + sin(a)*cos(b)*sin(c);
-  z = cos(a)*cos(b)*sin(c) - sin(a)*sin(b)*cos(c);
+//  w = cos(a)*cos(b)*cos(c) + sin(a)*sin(b)*sin(c);
+//  x = sin(a)*cos(b)*cos(c) - cos(a)*sin(b)*sin(c);
+//  y = cos(a)*sin(b)*cos(c) + sin(a)*cos(b)*sin(c);
+//  z = cos(a)*cos(b)*sin(c) - sin(a)*sin(b)*cos(c); 
+  float c1 = cos(a), c2 = cos(b), c3 = cos(c);
+  float s1 = sin(a), s2 = sin(b), s3 = sin(c);
+//  float c1c2 = c1 * c2;
+//  float s1s2 = s1 * s2;
+//  
+//  w = c1c2*c3 - s1s2*s3;
+//  x = c1c2*s3 + s1s2*c3;
+//  y = s1*c2*c3 + c1*s2*s3;
+//  z = c1*s2*c3 - s1*c2*s3;
+  
+  w = c1*c2*c3 + s1*s2*s3;
+  x = c1*s2*s3 - s1*c2*s3;
+  y = s1*c2*c3 + c1*s2*s3;
+  z = c1*c2*s3 - s1*s2*c3;
+}
+
+void Quaternion::getAngles(float *phi, float *theta, float *psi)
+{
+//  (*phi) = atan(2.0 * (w * x + y * z) / (1.0 - 2.0 * (x*x + y*y)));
+//  (*theta) = asin(2.0 * (w * y - z * x));
+//  (*psi) = atan(2.0 * (w * z + x * y) / (1.0 - 2.0 * (y*y + z*z)));
+  (*psi) = -atan2(2*x*y - 2*w*z, 2*w*w + 2*x*x - 1); // psi
+  (*theta) = asin(2*x*z + 2*w*y); // theta
+  (*phi) = -atan2(2*y*z - 2*w*x, 2*w*w + 2*z*z - 1); // phi
+  
+  (*phi) *= (180.0 / M_PI);
+  (*theta) *= (180.0 / M_PI);
+  (*psi) *= (180.0 / M_PI);
 }
 
 void Quaternion::getGravity(float *gx, float *gy, float *gz)
@@ -111,8 +139,28 @@ Quaternion Quaternion::operator*(Quaternion q)
     w*q.z + x*q.y - y*q.x + z*q.w); // new z (- + +)?
 }
 
-Quaternion Quaternion::rotateByAngularVelocity(float vx, float vy, float vz)
+Quaternion Quaternion::average(Quaternion q, float q_weight, Quaternion p, float p_weight)
+{
+  //naive implementation - need to be implemented properly!!!
+  Quaternion result(
+    q_weight * q.w + p_weight * p.w,
+    q_weight * q.x + p_weight * p.x,
+    q_weight * q.y + p_weight * p.y,
+    q_weight * q.z + p_weight * p.z
+  );
+  
+  result.normalize();
+  
+  return result;
+}
+
+Quaternion Quaternion::rotateByAngles(float vx, float vy, float vz)
 {
   Quaternion q_rot = fromRotationVector(vx, vy, vz);
   return (*this) * q_rot;
+}
+
+void Quaternion::normalize()
+{
+  float m = sqrt(w*w + x*x + y*y + z*z);
 }

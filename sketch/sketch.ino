@@ -34,7 +34,7 @@
 #define KALMAN_Q_GYROBIAS                   0.003
 #define KALMAN_R_ANGLE                      0.03
 
-#define READABLE
+//#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
@@ -203,18 +203,23 @@ void loop()
 
   float yaw, pitch, roll;
   
-  q.getPRYAngles(&pitch, &roll, &yaw);
+  //q is previous value updated with gyro readouts
+  q.getAngles(&pitch, &roll, &yaw);
 
-  compAngleX = 0.999 * (pitch + gyroDeltaX) + 0.001 * accAngleX - pitch; // Calculate the angle using a Complimentary filter
-  compAngleY = 0.999 * (roll + gyroDeltaY) + 0.001 * accAngleY - roll;
+//  compAngleX = 0.96 * (pitch + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
+//  compAngleY = 0.96 * (roll + gyroDeltaY) + 0.04 * accAngleY;
 
-  //  q.setByAngles(gyroAngleX, gyroAngleY, gyroAngleZ);
-  //  q.setByAngles(compAngleX, compAngleY, gyroAngleZ);
-  q = q.rotateByAngularVelocity(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
-  //q = q.rotateByAngularVelocity(compAngleX * DEG_TO_RAD, compAngleY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
-  q.getPRYAngles(&pitch, &roll, &yaw);
-  q2.setByAngles(0, 0, 0);
-  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
+  q = q.rotateByAngles(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
+  
+  q.getAngles(&pitch, &roll, &yaw); //is it necessary? just need updated yaw
+  
+  //q2 is current rotation from acc, the Z axis is taken from q
+  q2.setByAngles(0.0, 0.0, 0.0);
+  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
+  
+  //complimentary filter - weighted average of both results: 
+  q=Quaternion::average(q, 0.96, q2, 0.04);
+//  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
 
 
   float tempx, tempy, tempz;
@@ -264,19 +269,19 @@ void loop()
   Serial.print(gyroDeltaZ, 8); 
   Serial.print("\t");
   */
-  Serial.print(pitch, 8); 
+  /*Serial.print(pitch, 8); 
   Serial.print("\t");
   Serial.print(roll, 8); 
   Serial.print("\t");
   Serial.print(yaw, 8); 
-  Serial.print("\t"); /*
+  Serial.print("\t"); */
   
   Serial.print(accAngleX, 8);
   Serial.print("\t");
   Serial.print(accAngleY, 8);
-  Serial.print("\t"); */
+  Serial.print("\t");
 
-  Serial.print(q.w, 8); 
+  /*Serial.print(q.w, 8); 
   Serial.print("\t");
   Serial.print(q.x, 8); 
   Serial.print("\t");
@@ -291,7 +296,7 @@ void loop()
   Serial.print("\t");
   Serial.print(q2.y, 8); 
   Serial.print("\t");
-  Serial.print(q2.z, 8); 
+  Serial.print(q2.z, 8); */
   
   
   /*
