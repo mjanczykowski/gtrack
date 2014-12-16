@@ -34,7 +34,7 @@
 #define KALMAN_Q_GYROBIAS                   0.003
 #define KALMAN_R_ANGLE                      0.03
 
-//#define READABLE
+#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
@@ -226,8 +226,8 @@ void loop()
   //q.printQuaternion("q");
   
   //q2 is current rotation from acc, the Z axis is taken from q
-  //q2.setByAngles(0.0, 0.0, 0.0);
-  //q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
+  q2.setByAngles(0.0, 0.0, 0.0);
+  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
   
   float azz = az;
   
@@ -241,7 +241,7 @@ void loop()
   float theta = acos(-azz/17128.0);
   float vx = -ay/17128.0, vy = ax/17128.0, vz = 0;
   
-  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
+//  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
   
   //complimentary filter - weighted average of both results: 
   q=Quaternion::average(q, 0.96, q2, 0.04);
@@ -300,7 +300,7 @@ void loop()
   Serial.print(roll, 8); 
   Serial.print("\t");
   Serial.print(yaw, 8); 
-  Serial.print("\t"); */
+  Serial.print("\t");
   Serial.print(ax/17128.0, 8); 
   Serial.print("\t");
   Serial.print(ay/17128.0, 8); 
@@ -308,7 +308,7 @@ void loop()
   Serial.print(az/17128.0, 8); 
   Serial.print("\t");
   Serial.print(acos(-azz/17128.0)); 
-  Serial.print("\t");
+  Serial.print("\t");*/
   
   Serial.print(accAngleX, 8);
   Serial.print("\t");
@@ -317,7 +317,7 @@ void loop()
   
   float alpha, beta, gamma;
   
-  q.getPRYAngles(&alpha, &beta, &gamma);
+  q2.getPRYAngles(&alpha, &beta, &gamma);
   Serial.print(alpha);
   Serial.print("\t");
   Serial.print(beta);
@@ -325,7 +325,7 @@ void loop()
   Serial.print(gamma);
   Serial.print("\t");
   
-  q2.printQuaternion("q2");
+//  q2.printQuaternion("q2");
 
   /*Serial.print(q.w, 8); 
   Serial.print("\t");
