@@ -8,6 +8,18 @@ Quaternion::Quaternion()
   z = 0.0f; 
 }
 
+Quaternion Quaternion::fromThetaAndVector(float theta, float x, float y, float z)
+{
+  float m = sqrt(x*x + y*y + z*z), sintheta2 = sin(theta/2.0);
+  
+  float aw = cos(theta/2.0);
+  float ax = x / m * sintheta2;
+  float ay = y / m * sintheta2;
+  float az = z / m * sintheta2;
+  
+  return Quaternion(aw, ax, ay, az);
+}
+
 Quaternion::Quaternion(float w, float x, float y, float z)
 {
   this->w = w;
@@ -163,4 +175,18 @@ Quaternion Quaternion::rotateByAngles(float vx, float vy, float vz)
 void Quaternion::normalize()
 {
   float m = sqrt(w*w + x*x + y*y + z*z);
+  w /= m;
+  x /= m;
+  y /= m;
+  z /= m;
+}
+
+void Quaternion::printQuaternion(char *text)
+{
+  Serial.print("Quaternion ");
+  Serial.print(text); Serial.print(": w=");
+  Serial.print(w); Serial.print("\tx=");
+  Serial.print(x); Serial.print("\ty=");
+  Serial.print(y); Serial.print("\tz=");
+  Serial.print(z); Serial.print("\n");
 }

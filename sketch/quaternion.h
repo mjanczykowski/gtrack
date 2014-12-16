@@ -2,6 +2,7 @@
 #define QUATERNION_H
 
 #include <math.h>
+#include "Arduino.h"
 
 class Quaternion
 {
@@ -14,6 +15,7 @@ class Quaternion
     Quaternion(float w, float x, float y, float z);
     //maps a rotation vector to a unit quaternion
     static Quaternion fromRotationVector(float vx, float vy, float vz);
+    static Quaternion fromThetaAndVector(float theta, float x, float y, float z);
     
     Quaternion operator*(Quaternion q);
     static Quaternion average(Quaternion q, float q_weight, Quaternion p, float p_weight);
@@ -24,6 +26,7 @@ class Quaternion
     Quaternion rotateByAngles(float vx, float vy, float vz);
     void getGravity(float *gx, float *gy, float *gz);
     void normalize();
+    void printQuaternion(char *text);
 };
 
 #endif /* QUATERNION_H */

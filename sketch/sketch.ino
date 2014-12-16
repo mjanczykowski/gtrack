@@ -156,6 +156,13 @@ void setup()
   kalmanX = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, roll);
   kalmanY = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, pitch);
   
+  float theta = acos(-az);
+  float vx = -ay, vy = ax, vz = 0;
+  
+  Serial.println(az);
+  
+  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
+  
   time = micros();
 }
 
@@ -193,7 +200,10 @@ void loop()
   //  gyro_v_z = gz / MPU6050_GYROSCOPE_SCALE_FACTOR;
 
   accAngleX = atan2(ay, az) * RAD_TO_DEG;
-  accAngleY = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
+  accAngleY = atan(-ax / sqrt(ax * ax + ay * ay + az * az)) * RAD_TO_DEG;
+  
+  //float accTheta = acos(-az);
+  
 
 #ifdef DEBUG
   Serial.print(accAngleX); 
@@ -213,9 +223,25 @@ void loop()
   
   q.getAngles(&pitch, &roll, &yaw); //is it necessary? just need updated yaw
   
+  //q.printQuaternion("q");
+  
   //q2 is current rotation from acc, the Z axis is taken from q
-  q2.setByAngles(0.0, 0.0, 0.0);
-  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
+  //q2.setByAngles(0.0, 0.0, 0.0);
+  //q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
+  
+  float azz = az;
+  
+  if(az < -17128.0){
+    azz = - 17128.0; 
+  }
+  if(az > 17128.0){
+    azz = 17128.0;
+  }
+  
+  float theta = acos(-azz/17128.0);
+  float vx = -ay/17128.0, vy = ax/17128.0, vz = 0;
+  
+  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
   
   //complimentary filter - weighted average of both results: 
   q=Quaternion::average(q, 0.96, q2, 0.04);
@@ -275,11 +301,31 @@ void loop()
   Serial.print("\t");
   Serial.print(yaw, 8); 
   Serial.print("\t"); */
+  Serial.print(ax/17128.0, 8); 
+  Serial.print("\t");
+  Serial.print(ay/17128.0, 8); 
+  Serial.print("\t");
+  Serial.print(az/17128.0, 8); 
+  Serial.print("\t");
+  Serial.print(acos(-azz/17128.0)); 
+  Serial.print("\t");
   
   Serial.print(accAngleX, 8);
   Serial.print("\t");
   Serial.print(accAngleY, 8);
   Serial.print("\t");
+  
+  float alpha, beta, gamma;
+  
+  q.getPRYAngles(&alpha, &beta, &gamma);
+  Serial.print(alpha);
+  Serial.print("\t");
+  Serial.print(beta);
+  Serial.print("\t");
+  Serial.print(gamma);
+  Serial.print("\t");
+  
+  q2.printQuaternion("q2");
 
   /*Serial.print(q.w, 8); 
   Serial.print("\t");
