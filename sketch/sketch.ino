@@ -199,8 +199,13 @@ void loop()
   gyro_v_y = gy / MPU6050_GYROSCOPE_SCALE_FACTOR;
   //  gyro_v_z = gz / MPU6050_GYROSCOPE_SCALE_FACTOR;
 
-  accAngleX = atan2(ay, az) * RAD_TO_DEG;
-  accAngleY = atan(-ax / sqrt(ax * ax + ay * ay + az * az)) * RAD_TO_DEG;
+//  accAngleX = atan2(-ay, -az) * RAD_TO_DEG;
+//  accAngleY = atan2(ax, sqrt(ay * ay + az * az)) * RAD_TO_DEG;
+  
+  accAngleX = atan2(ay, sqrt(ax * ax + az * az)) * RAD_TO_DEG;
+  accAngleY = atan2(-ax, az) * RAD_TO_DEG;
+
+
   
   //float accTheta = acos(-az);
   
@@ -244,7 +249,7 @@ void loop()
 //  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
   
   //complimentary filter - weighted average of both results: 
-  q=Quaternion::average(q, 0.96, q2, 0.04);
+//  q=Quaternion::average(q, 0.96, q2, 0.04);
 //  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
 
 
@@ -317,7 +322,10 @@ void loop()
   
   float alpha, beta, gamma;
   
-  q2.getPRYAngles(&alpha, &beta, &gamma);
+  q.getAngles(&alpha, &beta, &gamma);
+  Serial.print(gamma);
+  Serial.print("\t");
+  
   Serial.print(alpha);
   Serial.print("\t");
   Serial.print(beta);
