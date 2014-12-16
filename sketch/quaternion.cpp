@@ -107,12 +107,13 @@ void Quaternion::setByAngles(float phi, float theta, float psi)
 
 void Quaternion::getAngles(float *phi, float *theta, float *psi)
 {
-//  (*phi) = atan(2.0 * (w * x + y * z) / (1.0 - 2.0 * (x*x + y*y)));
-//  (*theta) = asin(2.0 * (w * y - z * x));
-//  (*psi) = atan(2.0 * (w * z + x * y) / (1.0 - 2.0 * (y*y + z*z)));
-  (*psi) = -atan2(2*x*y - 2*w*z, 2*w*w + 2*x*x - 1); // psi
-  (*theta) = asin(2*x*z + 2*w*y); // theta
-  (*phi) = -atan2(2*y*z - 2*w*x, 2*w*w + 2*z*z - 1); // phi
+//  (*psi) = -atan2(2*x*y - 2*w*z, 2*w*w + 2*x*x - 1); // psi
+//  (*theta) = asin(2*x*z + 2*w*y); // theta
+//  (*phi) = -atan2(2*y*z - 2*w*x, 2*w*w + 2*z*z - 1); // phi
+
+  (*theta) = atan2(-2*x*z + 2*w*y, z*z - y*y - x*x + w*w);
+  (*phi) = asin(2*y*z + 2*w*x);
+  (*psi) = atan2(-2*x*y + 2*w*z, y*y - z*z + w*w - x*x);
   
   (*phi) *= (180.0 / M_PI);
   (*theta) *= (180.0 / M_PI);

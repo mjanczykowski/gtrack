@@ -34,7 +34,7 @@
 #define KALMAN_Q_GYROBIAS                   0.003
 #define KALMAN_R_ANGLE                      0.03
 
-#define READABLE
+//#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
@@ -362,10 +362,10 @@ void loop()
 
 #else
 
-  w = q.w * 16384.0;
-  x = q.x * 16384.0;
-  y = q.y * 16384.0;
-  z = q.z * 16384.0;
+  w = q2.w * 16384.0;
+  x = q2.x * 16384.0;
+  y = q2.y * 16384.0;
+  z = q2.z * 16384.0;
 
   teapotPacket[2] = ((uint8_t)(w >> 8));
   teapotPacket[3] = ((uint8_t)(w & 0xFF));
