@@ -231,8 +231,8 @@ void loop()
   //q.printQuaternion("q");
   
   //q2 is current rotation from acc, the Z axis is taken from q
-  q2.setByAngles(0.0, 0.0, 0.0);
-  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
+  q2.setByAngles(accAngleX, accAngleY, yaw);
+//  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
   
   float azz = az;
   
@@ -249,7 +249,7 @@ void loop()
 //  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
   
   //complimentary filter - weighted average of both results: 
-//  q=Quaternion::average(q, 0.96, q2, 0.04);
+  q=Quaternion::average(q, 0.99, q2, 0.01);
 //  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
 
 
@@ -315,16 +315,16 @@ void loop()
   Serial.print(acos(-azz/17128.0)); 
   Serial.print("\t");*/
   
-  Serial.print(accAngleX, 8);
+  /*Serial.print(accAngleX, 8);
   Serial.print("\t");
   Serial.print(accAngleY, 8);
-  Serial.print("\t");
+  Serial.print("\t");*/
   
   float alpha, beta, gamma;
   
   q.getAngles(&alpha, &beta, &gamma);
-  Serial.print(gamma);
-  Serial.print("\t");
+  /*Serial.print(gamma);
+  Serial.print("\t");*/
   
   Serial.print(alpha);
   Serial.print("\t");
@@ -333,6 +333,18 @@ void loop()
   Serial.print(gamma);
   Serial.print("\t");
   
+  
+  q2.setByAngles(alpha, beta, gamma);
+  q2.getAngles(&alpha, &beta, &gamma);
+  
+  Serial.print(alpha);
+  Serial.print("\t");
+  Serial.print(beta);
+  Serial.print("\t");
+  Serial.print(gamma);
+  Serial.print("\t");
+  
+//  q.printQuaternion("q1");
 //  q2.printQuaternion("q2");
 
   /*Serial.print(q.w, 8); 

@@ -78,31 +78,24 @@ Quaternion Quaternion::fromRotationVector(float vx, float vy, float vz)
 //  );
 }
    
-void Quaternion::setByAngles(float phi, float theta, float psi)
+void Quaternion::setByAngles(float pitch, float roll, float yaw)
 {
   //translation to rad/2
-  float a = phi * M_PI / 360.0;  // Phi / 2.0
-  float b = theta * M_PI / 360.0; // Theta / 2.0
-  float c = psi * M_PI / 360.0;   // Psi / 2.0
+  float a = roll * M_PI / 360.0;  // Phi / 2.0
+  float b = pitch * M_PI / 360.0; // Theta / 2.0
+  float c = yaw * M_PI / 360.0;   // Psi / 2.0
   
-//  w = cos(a)*cos(b)*cos(c) + sin(a)*sin(b)*sin(c);
-//  x = sin(a)*cos(b)*cos(c) - cos(a)*sin(b)*sin(c);
-//  y = cos(a)*sin(b)*cos(c) + sin(a)*cos(b)*sin(c);
-//  z = cos(a)*cos(b)*sin(c) - sin(a)*sin(b)*cos(c); 
   float c1 = cos(a), c2 = cos(b), c3 = cos(c);
   float s1 = sin(a), s2 = sin(b), s3 = sin(c);
-//  float c1c2 = c1 * c2;
-//  float s1s2 = s1 * s2;
-//  
-//  w = c1c2*c3 - s1s2*s3;
-//  x = c1c2*s3 + s1s2*c3;
+
+//  w = c1*c2*c3 + s1*s2*s3;
+//  x = c1*s2*s3 - s1*c2*s3;
 //  y = s1*c2*c3 + c1*s2*s3;
-//  z = c1*s2*c3 - s1*c2*s3;
-  
-  w = c1*c2*c3 + s1*s2*s3;
-  x = c1*s2*s3 - s1*c2*s3;
-  y = s1*c2*c3 + c1*s2*s3;
-  z = c1*c2*s3 - s1*s2*c3;
+//  z = c1*c2*s3 - s1*s2*c3;
+  w = c1*c2*c3 - s1* s2*s3;
+  x = c1*c3*s2 - s1*c2*s3;
+  y = c1*s2*s3 + c2*c3*s1;
+  z = c1*c2*s3 + s1*c3*s2;
 }
 
 void Quaternion::getAngles(float *phi, float *theta, float *psi)
