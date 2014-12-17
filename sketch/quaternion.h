@@ -26,7 +26,7 @@ class Quaternion
     Quaternion rotateByAngles(float vx, float vy, float vz);
     void getGravity(float *gx, float *gy, float *gz);
     void normalize();
-    void printQuaternion(char *text);
+    void printQuaternion(char *text, int enter);
 };
 
 #endif /* QUATERNION_H */

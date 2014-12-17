@@ -163,6 +163,9 @@ Quaternion Quaternion::average(Quaternion q, float q_weight, Quaternion p, float
 Quaternion Quaternion::rotateByAngles(float vx, float vy, float vz)
 {
   Quaternion q_rot = fromRotationVector(vx, vy, vz);
+  /*Serial.print(vx,10);Serial.print("\t");
+  Serial.print(vy,10);Serial.print("\t");
+  Serial.print(vz,10);Serial.print("\t");*/
   return (*this) * q_rot;
 }
 
@@ -175,12 +178,17 @@ void Quaternion::normalize()
   z /= m;
 }
 
-void Quaternion::printQuaternion(char *text)
+void Quaternion::printQuaternion(char *text, int enter)
 {
   Serial.print("Quaternion ");
   Serial.print(text); Serial.print(": w=");
   Serial.print(w); Serial.print("\tx=");
   Serial.print(x); Serial.print("\ty=");
   Serial.print(y); Serial.print("\tz=");
-  Serial.print(z); Serial.print("\n");
+  Serial.print(z); 
+  if(enter){
+    Serial.print("\n");
+  } else {
+    Serial.print("\t");
+  }
 }

@@ -96,6 +96,12 @@ void setup()
   unsigned long startTime;
 
   startTime = currentTime = micros();
+  
+  while((newTime = micros()) - startTime < CALIBRATION_TIME){
+    getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
+  }
+  
+  startTime = currentTime = micros();
 
   while((newTime = micros()) - startTime < CALIBRATION_TIME)
   {
@@ -228,7 +234,7 @@ void loop()
   
   q.getAngles(&pitch, &roll, &yaw); //is it necessary? just need updated yaw
   
-  //q.printQuaternion("q");
+//  q.printQuaternion("q1", 0);
   
   //q2 is current rotation from acc, the Z axis is taken from q
   q2.setByAngles(accAngleX, accAngleY, yaw);
@@ -249,7 +255,7 @@ void loop()
 //  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
   
   //complimentary filter - weighted average of both results: 
-  q=Quaternion::average(q, 0.99, q2, 0.01);
+  q=Quaternion::average(q, 0.999, q2, 0.001);
 //  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
 
 
@@ -269,12 +275,12 @@ void loop()
 
 #ifdef READABLE
   
-  if(i % 101 == 100) {
+  /*if(i % 101 == 100) {
     i = 0;
   } else {
     i++;
     return;
-  }
+  }*/
 
 #ifdef DEBUG
 
@@ -325,7 +331,7 @@ void loop()
   q.getAngles(&alpha, &beta, &gamma);
   /*Serial.print(gamma);
   Serial.print("\t");*/
-  
+
   Serial.print(alpha);
   Serial.print("\t");
   Serial.print(beta);
@@ -334,18 +340,18 @@ void loop()
   Serial.print("\t");
   
   
-  q2.setByAngles(alpha, beta, gamma);
-  q2.getAngles(&alpha, &beta, &gamma);
+//  q2.setByAngles(alpha, beta, gamma);
+  /*q2.getAngles(&alpha, &beta, &gamma);
   
   Serial.print(alpha);
   Serial.print("\t");
   Serial.print(beta);
   Serial.print("\t");
   Serial.print(gamma);
-  Serial.print("\t");
+  Serial.print("\t");*/
   
-//  q.printQuaternion("q1");
-//  q2.printQuaternion("q2");
+//  q.printQuaternion("q1", 0);
+//  q2.printQuaternion("q2", 1);
 
   /*Serial.print(q.w, 8); 
   Serial.print("\t");
