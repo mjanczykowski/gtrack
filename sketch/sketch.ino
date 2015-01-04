@@ -1,6 +1,7 @@
 #include "i2c.h"
 #include "quaternion.h"
 #include "kalman_filter.h"
+#include "dcm.h"
 #include <math.h>
 #include <inttypes.h>
 
@@ -34,6 +35,12 @@
 #define KALMAN_Q_GYROBIAS                   0.003
 #define KALMAN_R_ANGLE                      0.03
 
+//correction consts
+#define W_RP                                1.0
+#define W_Y                                 0.1
+#define K_P                                 1.0
+#define K_I                                 0.0
+
 //#define READABLE
 //#define DEBUG
 
@@ -63,6 +70,11 @@ float comp_v_x = 0.0, comp_v_y = 0.0;
 //Quaternion to send to computer and converted values
 Quaternion q, q2;
 uint16_t w, x, y, z;
+
+//DCM
+DCM R, R_aux;
+
+Vector rollPitchCorrectionPlane, totalCorrection, angVel_Pcorr, angVel_Icorr(0., 0., 0.), angVel_corr, rotation, angVel;
 
 int i = 0;
 long time = 0;
@@ -96,12 +108,6 @@ void setup()
   unsigned long startTime;
 
   startTime = currentTime = micros();
-  
-  while((newTime = micros()) - startTime < CALIBRATION_TIME){
-    getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
-  }
-  
-  startTime = currentTime = micros();
 
   while((newTime = micros()) - startTime < CALIBRATION_TIME)
   {
@@ -121,54 +127,29 @@ void setup()
     currentTime = newTime;
   }
 
-  drift_x = drift_angle_x / CALIBRATION_TIME;
-  drift_y = drift_angle_y / CALIBRATION_TIME;  
-  drift_z = drift_angle_z / CALIBRATION_TIME;
+  drift_x = drift_angle_x / CALIBRATION_TIME * 1000000.0;
+  drift_y = drift_angle_y / CALIBRATION_TIME * 1000000.0;  
+  drift_z = drift_angle_z / CALIBRATION_TIME * 1000000.0;
 
   Serial.print("Done.\nOX: Drift:\t");
-  Serial.print(drift_x * 10000000.0);
-  Serial.print("e-7\tDrift angle:\t");
+  Serial.print(drift_x);
+  Serial.print("\tDrift angle:\t");
   Serial.println(drift_angle_x);
   Serial.print("OY: Drift:\t");
-  Serial.print(drift_y * 10000000.0);
-  Serial.print("e-7\tDrift angle:\t");
+  Serial.print(drift_y);
+  Serial.print("\tDrift angle:\t");
   Serial.println(drift_angle_y);
   Serial.print("OZ: Drift:\t");
-  Serial.print(drift_z * 10000000.0);
-  Serial.print("e-7\t\tDrift angle:\t");
+  Serial.print(drift_z);
+  Serial.print("\t\tDrift angle:\t");
   Serial.println(drift_angle_z);
   Serial.println();
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
 
-#ifndef READABLE
-  //  gyroAngleX = gx;
-  //  gyroAngleY = gy;
-#endif
-
-  //compAngleX = gx;
-  //compAngleY = gy;
-
   currentTime = micros();
   newTime = 0;
 
-  //Compute roll and pitch from accel (in degrees)
-
-  float roll = atan2(ay, az) * RAD_TO_DEG;
-  float pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;  
-
-  //Create Kalman filters
-
-  kalmanX = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, roll);
-  kalmanY = new KalmanFilter(KALMAN_Q_ANGLE, KALMAN_Q_GYROBIAS, KALMAN_R_ANGLE, pitch);
-  
-  float theta = acos(-az);
-  float vx = -ay, vy = ax, vz = 0;
-  
-  Serial.println(az);
-  
-  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
-  
   time = micros();
 }
 
@@ -192,29 +173,57 @@ void loop()
   currentTime = newTime;
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
+  
+//  float gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x * dt;
+//  float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y * dt;
+//  float gyroDeltaZ = gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z * dt;
 
-  float gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x * dt;
-  float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y * dt;
-  float gyroDeltaZ = gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z * dt;
+  float gyroAngVel_X = (gx / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x) * DEG_TO_RAD;
+  float gyroAngVel_Y = (gy / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y) * DEG_TO_RAD;
+  float gyroAngVel_Z = (gz / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z) * DEG_TO_RAD;
 
+  angVel.setXYZ(gyroAngVel_X, gyroAngVel_Y, gyroAngVel_Z);
+  rotation = angVel * (dt / 1000000.0);
+//  rotation.setXYZ(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
+
+  R_aux = R.rotateByVector(rotation);
+  R_aux.normalize();
+  
+  //correction
+  Vector acc(ax, ay, az);
+  acc.normalize();
+  
+  rollPitchCorrectionPlane = R_aux.getZRow().cross(acc);
+  
+  totalCorrection = rollPitchCorrectionPlane * W_RP; // + W_Y * yawCorrection 
+  angVel_Pcorr = totalCorrection * K_P;
+  angVel_Icorr = angVel_Icorr + totalCorrection * (K_I * (dt / 1000000.0));
+  angVel_corr = angVel_Pcorr + angVel_Icorr;
+  
+  angVel = angVel - angVel_corr;
+  rotation = angVel * (dt / 1000000.0);
+  
+  R = R.rotateByVector(rotation);
+  R.normalize();
+  
   //  gyroAngleX += gyroDeltaX;
   //  gyroAngleY += gyroDeltaY;
   //  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
 
-  gyro_v_x = gx / MPU6050_GYROSCOPE_SCALE_FACTOR;
-  gyro_v_y = gy / MPU6050_GYROSCOPE_SCALE_FACTOR;
+//  gyro_v_x = gx / MPU6050_GYROSCOPE_SCALE_FACTOR;
+//  gyro_v_y = gy / MPU6050_GYROSCOPE_SCALE_FACTOR;
   //  gyro_v_z = gz / MPU6050_GYROSCOPE_SCALE_FACTOR;
 
-//  accAngleX = atan2(-ay, -az) * RAD_TO_DEG;
-//  accAngleY = atan2(ax, sqrt(ay * ay + az * az)) * RAD_TO_DEG;
-  
-  accAngleX = atan2(ay, sqrt(ax * ax + az * az)) * RAD_TO_DEG;
-  accAngleY = atan2(-ax, az) * RAD_TO_DEG;
+  //  accAngleX = atan2(-ay, -az) * RAD_TO_DEG;
+  //  accAngleY = atan2(ax, sqrt(ay * ay + az * az)) * RAD_TO_DEG;
+
+//  accAngleX = atan2(ay, sqrt(ax * ax + az * az)) * RAD_TO_DEG;
+//  accAngleY = atan2(-ax, az) * RAD_TO_DEG;
 
 
-  
+
   //float accTheta = acos(-az);
-  
+
 
 #ifdef DEBUG
   Serial.print(accAngleX); 
@@ -223,167 +232,99 @@ void loop()
 #endif
 
   float yaw, pitch, roll;
-  
+
   //q is previous value updated with gyro readouts
-  q.getAngles(&pitch, &roll, &yaw);
+  //  q.getAngles(&pitch, &roll, &yaw);
 
-//  compAngleX = 0.96 * (pitch + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
-//  compAngleY = 0.96 * (roll + gyroDeltaY) + 0.04 * accAngleY;
+  //  compAngleX = 0.96 * (pitch + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
+  //  compAngleY = 0.96 * (roll + gyroDeltaY) + 0.04 * accAngleY;
 
-  q = q.rotateByAngles(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
-  
-  q.getAngles(&pitch, &roll, &yaw); //is it necessary? just need updated yaw
-  
-//  q.printQuaternion("q1", 0);
-  
+  //  q = q.rotateByAngles(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
+
+  //  q.getAngles(&pitch, &roll, &yaw); //is it necessary? just need updated yaw
+
+  //q.printQuaternion("q");
+
   //q2 is current rotation from acc, the Z axis is taken from q
-  q2.setByAngles(accAngleX, accAngleY, yaw);
-//  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
-  
+  //  q2.setByAngles(accAngleX, accAngleY, yaw);
+  //  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
+
   float azz = az;
-  
+
   if(az < -17128.0){
     azz = - 17128.0; 
   }
   if(az > 17128.0){
     azz = 17128.0;
   }
-  
+
   float theta = acos(-azz/17128.0);
   float vx = -ay/17128.0, vy = ax/17128.0, vz = 0;
-  
-//  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
-  
+
+  Vector ypr = R.getYawPitchRoll();
+
+  q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
+
+  //  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
+
   //complimentary filter - weighted average of both results: 
-  q=Quaternion::average(q, 0.999, q2, 0.001);
-//  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
-
-
-  float tempx, tempy, tempz;
-  //q.getAngles(&tempx, &tempy, &tempz);
-
-#ifdef DEBUG
-
-  Serial.print(tempx); 
-  Serial.print("\t"); 
-  Serial.print(tempy); 
-  Serial.print("\t"); 
-  Serial.print(tempz); 
-  Serial.print("\n\n");
-
-#endif
+  //  q=Quaternion::average(q, 0.99, q2, 0.01);
+  //  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
 
 #ifdef READABLE
-  
-  /*if(i % 101 == 100) {
+
+  if(i % 11 == 10) {
     i = 0;
-  } else {
+  } 
+  else {
     i++;
     return;
-  }*/
-
-#ifdef DEBUG
-
-  Serial.print(ax, 8); 
-  Serial.print("\t");
-  Serial.print(ay, 8); 
-  Serial.print("\t");
-  Serial.print(az, 8); 
-  Serial.print("\t");
-  Serial.print(gx, 8); 
-  Serial.print("\t");
-  Serial.print(gy, 8); 
-  Serial.print("\t");
-  Serial.print(gz, 8); 
-  Serial.print("\n");
-
-#endif //DEBUG
+  }
+  
+//  R.getXRow().print();
+//  R.getYRow().print();
+//  R.getZRow().print();
+  ypr.printDeg();
+  
+//  acc.print();
 
   /*Serial.print(gyroDeltaX, 8); 
-  Serial.print("\t");
-  Serial.print(gyroDeltaY, 8); 
-  Serial.print("\t");
-  Serial.print(gyroDeltaZ, 8); 
-  Serial.print("\t");
-  */
+   Serial.print("\t");
+   Serial.print(gyroDeltaY, 8); 
+   Serial.print("\t");
+   Serial.print(gyroDeltaZ, 8); 
+   Serial.print("\t");
+   */
   /*Serial.print(pitch, 8); 
-  Serial.print("\t");
-  Serial.print(roll, 8); 
-  Serial.print("\t");
-  Serial.print(yaw, 8); 
-  Serial.print("\t");
-  Serial.print(ax/17128.0, 8); 
-  Serial.print("\t");
-  Serial.print(ay/17128.0, 8); 
-  Serial.print("\t");
-  Serial.print(az/17128.0, 8); 
-  Serial.print("\t");
-  Serial.print(acos(-azz/17128.0)); 
-  Serial.print("\t");*/
-  
+   Serial.print("\t");
+   Serial.print(roll, 8); 
+   Serial.print("\t");
+   Serial.print(yaw, 8); 
+   Serial.print("\t");
+   Serial.print(ax/17128.0, 8); 
+   Serial.print("\t");
+   Serial.print(ay/17128.0, 8); 
+   Serial.print("\t");
+   Serial.print(az/17128.0, 8); 
+   Serial.print("\t");
+   Serial.print(acos(-azz/17128.0)); 
+   Serial.print("\t");*/
+
   /*Serial.print(accAngleX, 8);
-  Serial.print("\t");
-  Serial.print(accAngleY, 8);
-  Serial.print("\t");*/
-  
-  float alpha, beta, gamma;
-  
-  q.getAngles(&alpha, &beta, &gamma);
-  /*Serial.print(gamma);
-  Serial.print("\t");*/
+   Serial.print("\t");
+   Serial.print(accAngleY, 8);
+   Serial.print("\t");*/
 
-  Serial.print(alpha);
-  Serial.print("\t");
-  Serial.print(beta);
-  Serial.print("\t");
-  Serial.print(gamma);
-  Serial.print("\t");
-  
-  
-//  q2.setByAngles(alpha, beta, gamma);
-  /*q2.getAngles(&alpha, &beta, &gamma);
-  
-  Serial.print(alpha);
-  Serial.print("\t");
-  Serial.print(beta);
-  Serial.print("\t");
-  Serial.print(gamma);
-  Serial.print("\t");*/
-  
-//  q.printQuaternion("q1", 0);
-//  q2.printQuaternion("q2", 1);
-
-  /*Serial.print(q.w, 8); 
-  Serial.print("\t");
-  Serial.print(q.x, 8); 
-  Serial.print("\t");
-  Serial.print(q.y, 8); 
-  Serial.print("\t");
-  Serial.print(q.z, 8); 
-  
-  Serial.print("\t");
-  Serial.print(q2.w, 8); 
-  Serial.print("\t");
-  Serial.print(q2.x, 8); 
-  Serial.print("\t");
-  Serial.print(q2.y, 8); 
-  Serial.print("\t");
-  Serial.print(q2.z, 8); */
-  
-  
-  /*
-  Serial.print("\t\t");
-  Serial.print((micros() - time)/100.0, 8);*/
   Serial.print("\n");
-  
+
   time = micros();
 
 #else
 
-  w = q2.w * 16384.0;
-  x = q2.x * 16384.0;
-  y = q2.y * 16384.0;
-  z = q2.z * 16384.0;
+  w = q.w * 16384.0;
+  x = q.x * 16384.0;
+  y = q.y * 16384.0;
+  z = q.z * 16384.0;
 
   teapotPacket[2] = ((uint8_t)(w >> 8));
   teapotPacket[3] = ((uint8_t)(w & 0xFF));
@@ -452,5 +393,6 @@ void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, flo
   (*g_y) = (float) gy;
   (*g_z) = (float) gz;
 }
+
 
 
