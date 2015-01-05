@@ -114,9 +114,14 @@ char I2CDevice::readRegister(char reg){
 	return ret;
 } 
 
-char* I2CDevice::readNRegisters(char regStart, int n) {
-	char *data = new char[n];
-	for(int i = 0; i < n; i++)
-		data[i] = readRegister(regStart + i);
-	return data;
+uint8_t I2CDevice::readNRegisters(char regStart, int n, char *buffer) {
+        int i = 0;
+        if(!start(I2C_WRITE)) return 0;
+        if(!write(regStart)) return 0;
+        for(;i<n-1;i++){
+          buffer[i] = readNextByte();
+        }
+        buffer[n-1] = readLastByte();
+        stop();
+        return 1;
 }
