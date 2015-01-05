@@ -405,27 +405,27 @@ void loop()
 void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z){
   int8_t ax_h = dev -> readRegister(MPU6050_ACCEL_X_AXIS_HIGH_REGISTER);
   int8_t ax_l = dev -> readRegister(MPU6050_ACCEL_X_AXIS_LOW_REGISTER);
-  int16_t ax = (((int16_t)ax_h) << 8) + ax_l;
+  int16_t ax = (((int16_t)ax_h) << 8) | (ax_l & 0xff);
 
   int8_t ay_h = dev -> readRegister(MPU6050_ACCEL_Y_AXIS_HIGH_REGISTER);
   int8_t ay_l = dev -> readRegister(MPU6050_ACCEL_Y_AXIS_LOW_REGISTER);
-  int16_t ay = (((int16_t)ay_h) << 8) + ay_l;
+  int16_t ay = (((int16_t)ay_h) << 8) | (ay_l & 0xff);
 
   int8_t az_h = dev -> readRegister(MPU6050_ACCEL_Z_AXIS_HIGH_REGISTER);
   int8_t az_l = dev -> readRegister(MPU6050_ACCEL_Z_AXIS_LOW_REGISTER);
-  int16_t az = (((int16_t)az_h) << 8) + az_l;
+  int16_t az = (((int16_t)az_h) << 8) | (az_l & 0xff);
 
   int8_t gx_h = dev -> readRegister(MPU6050_GYRO_X_AXIS_HIGH_REGISTER);
   int8_t gx_l = dev -> readRegister(MPU6050_GYRO_X_AXIS_LOW_REGISTER);
-  int16_t gx = (((int16_t)gx_h) << 8) + gx_l;
+  int16_t gx = (((int16_t)gx_h) << 8) | (gx_l & 0xff);
 
   int8_t gy_h = dev -> readRegister(MPU6050_GYRO_Y_AXIS_HIGH_REGISTER);
   int8_t gy_l = dev -> readRegister(MPU6050_GYRO_Y_AXIS_LOW_REGISTER);
-  int16_t gy = (((int16_t)gy_h) << 8) + gy_l;
+  int16_t gy = (((int16_t)gy_h) << 8) | (gy_l & 0xff);
 
   int8_t gz_h = dev -> readRegister(MPU6050_GYRO_Z_AXIS_HIGH_REGISTER);
   int8_t gz_l = dev -> readRegister(MPU6050_GYRO_Z_AXIS_LOW_REGISTER);
-  int16_t gz = (((int16_t)gz_h) << 8) + gz_l;
+  int16_t gz = (((int16_t)gz_h) << 8) | (gz_l & 0xff);
 
   (*a_x) = (float) ax;
   (*a_y) = (float) ay;
@@ -439,15 +439,15 @@ void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, flo
 void getCurrentValuesFromMagnetometer(float *m_x, float *m_y, float *m_z){
   int8_t mx_h = mgn -> readRegister(HMC5883L_RA_DATAX_H);
   int8_t mx_l = mgn -> readRegister(HMC5883L_RA_DATAX_L);
-  int16_t mx = (((int16_t)mx_h) << 8) + mx_l;
+  int16_t mx = (((int16_t)mx_h) << 8) | (mx_l & 0xff);
   
   int8_t my_h = mgn -> readRegister(HMC5883L_RA_DATAY_H);
   int8_t my_l = mgn -> readRegister(HMC5883L_RA_DATAY_L);
-  int16_t my = (((int16_t)my_h) << 8) + my_l;
+  int16_t my = (((int16_t)my_h) << 8) | (my_l & 0xff);
   
   int8_t mz_h = mgn -> readRegister(HMC5883L_RA_DATAZ_H);
   int8_t mz_l = mgn -> readRegister(HMC5883L_RA_DATAZ_L);
-  int16_t mz = (((int16_t)mz_h) << 8) + mz_l;
+  int16_t mz = (((int16_t)mz_h) << 8) | (mz_l & 0xff);
   
   Serial.print(mx); Serial.print("\t");
   Serial.print(my); Serial.print("\t");
