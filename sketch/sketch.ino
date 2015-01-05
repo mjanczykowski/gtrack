@@ -41,11 +41,31 @@
 #define K_P                                 1.0
 #define K_I                                 0.0
 
-//#define READABLE
+//magnetometer
+#define HMC5883L_I2C_ADDRESS                0x1e
+#define HMC5883L_RA_CONFIG_A                0x00
+#define HMC5883L_RA_CONFIG_B                0x01
+#define HMC5883L_RA_MODE                    0x02
+
+#define HMC5883L_RA_DATAX_H                 0x03
+#define HMC5883L_RA_DATAX_L                 0x04
+#define HMC5883L_RA_DATAZ_H                 0x05
+#define HMC5883L_RA_DATAZ_L                 0x06
+#define HMC5883L_RA_DATAY_H                 0x07
+#define HMC5883L_RA_DATAY_L                 0x08
+
+#define HMC5883L_OFFSET_X                   -122.5
+#define HMC5883L_OFFSET_Y                   226.5
+#define HMC5883L_OFFSET_Z                   46.5
+#define HMC5883L_SPREAD_X                   765.0
+#define HMC5883L_SPREAD_Y                   785.0
+#define HMC5883L_SPREAD_Z                   793.0
+
+#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
-I2CDevice *dev;
+I2CDevice *dev, *mgn;
 
 //Kalman filters - X and Y axis
 KalmanFilter *kalmanX, *kalmanY;
@@ -82,6 +102,9 @@ long time = 0;
 //Values from MPU
 float ax, ay, az, gx, gy, gz;
 
+//Values from magnetometer
+float mx, my, mz;
+
 //Drift
 float drift_x = 0.0, drift_y = 0.0, drift_z = 0.0;
 
@@ -96,7 +119,13 @@ void setup()
   dev = new I2CDevice(MPU6050_I2C_ADDRESS, I2C_BITRATE);
   dev -> writeRegister(MPU6050_IDLE_REGISTER, 0);
   dev -> writeRegister(MPU6050_GYROSCOPE_CONTROL_REGISTER, 0);
+  
+  mgn = new I2CDevice(HMC5883L_I2C_ADDRESS, I2C_BITRATE);
+  mgn -> writeRegister(HMC5883L_RA_CONFIG_A, 0x70);
+  mgn -> writeRegister(HMC5883L_RA_CONFIG_B, 0x20);
+  mgn -> writeRegister(HMC5883L_RA_MODE, 0x01);
 
+  //gyro calibration
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
 
   float prev_gz = gz;
@@ -173,6 +202,7 @@ void loop()
   currentTime = newTime;
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
+  getCurrentValuesFromMagnetometer(&mx, &my, &mz);
   
 //  float gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x * dt;
 //  float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y * dt;
@@ -284,7 +314,18 @@ void loop()
 //  R.getXRow().print();
 //  R.getYRow().print();
 //  R.getZRow().print();
-  ypr.printDeg();
+//  ypr.printDeg();
+
+  /*Serial.print("mag:\t");
+  Serial.print(mx); Serial.print("\t");
+  Serial.print(my); Serial.print("\t");
+  Serial.print(mz); Serial.print("\t");
+
+  float heading = atan2(my, mx);
+  if(heading < 0)
+    heading += 2 * M_PI;
+  Serial.print("heading:\t");
+  Serial.println(heading * 180/M_PI);*/
   
 //  acc.print();
 
@@ -395,4 +436,27 @@ void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, flo
 }
 
 
-
+void getCurrentValuesFromMagnetometer(float *m_x, float *m_y, float *m_z){
+  int8_t mx_h = mgn -> readRegister(HMC5883L_RA_DATAX_H);
+  int8_t mx_l = mgn -> readRegister(HMC5883L_RA_DATAX_L);
+  int16_t mx = (((int16_t)mx_h) << 8) + mx_l;
+  
+  int8_t my_h = mgn -> readRegister(HMC5883L_RA_DATAY_H);
+  int8_t my_l = mgn -> readRegister(HMC5883L_RA_DATAY_L);
+  int16_t my = (((int16_t)my_h) << 8) + my_l;
+  
+  int8_t mz_h = mgn -> readRegister(HMC5883L_RA_DATAZ_H);
+  int8_t mz_l = mgn -> readRegister(HMC5883L_RA_DATAZ_L);
+  int16_t mz = (((int16_t)mz_h) << 8) + mz_l;
+  
+  Serial.print(mx); Serial.print("\t");
+  Serial.print(my); Serial.print("\t");
+  Serial.print(mz); Serial.print("\n");
+  
+  (*m_x) = (float) mx + HMC5883L_OFFSET_X;
+  (*m_y) = (float) (my + HMC5883L_OFFSET_Y) / HMC5883L_SPREAD_Y * HMC5883L_SPREAD_X;
+  (*m_z) = (float) (mz + HMC5883L_OFFSET_Z) / HMC5883L_SPREAD_Z * HMC5883L_SPREAD_X;
+  
+  //set mode to SINGLE (some bits are overriden?)
+  mgn -> writeRegister(HMC5883L_RA_MODE, 0x01);
+}
