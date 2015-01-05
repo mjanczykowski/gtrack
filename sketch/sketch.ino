@@ -3,9 +3,6 @@
 #include "kalman_filter.h"
 #include <math.h>
 #include <inttypes.h>
-#include "median.h"
-
-using namespace std;
 
 #define I2C_BITRATE                         200000
 
@@ -37,10 +34,8 @@ using namespace std;
 #define KALMAN_Q_GYROBIAS                   0.003
 #define KALMAN_R_ANGLE                      0.03
 
-#define READABLE
-#define DEBUG
-
-#define MEASUREMENTS_COUNT                  5
+//#define READABLE
+//#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
 I2CDevice *dev;
@@ -81,8 +76,6 @@ float drift_x = 0.0, drift_y = 0.0, drift_z = 0.0;
 //Function to get current values from MPU
 void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z);
 
-Median *medianFilter;
-
 void setup()
 {
   Serial.begin(115200);
@@ -121,20 +114,16 @@ void setup()
 
     getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
 
-    /*drift_angle_x += gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
+    drift_angle_x += gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
     drift_angle_y += gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
-    drift_angle_z += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;*/
-    
-    drift_angle_x = max(drift_angle_x, abs(gx) / MPU6050_GYROSCOPE_SCALE_FACTOR);
-    drift_angle_y = max(drift_angle_y, abs(gy) / MPU6050_GYROSCOPE_SCALE_FACTOR);
-    drift_angle_z = max(drift_angle_z, abs(gz) / MPU6050_GYROSCOPE_SCALE_FACTOR);
+    drift_angle_z += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR;
 
     currentTime = newTime;
   }
 
-  drift_x = drift_angle_x /* / CALIBRATION_TIME*/;
-  drift_y = drift_angle_y /* / CALIBRATION_TIME*/;  
-  drift_z = drift_angle_z /* / CALIBRATION_TIME*/;
+  drift_x = drift_angle_x / CALIBRATION_TIME;
+  drift_y = drift_angle_y / CALIBRATION_TIME;  
+  drift_z = drift_angle_z / CALIBRATION_TIME;
 
   Serial.print("Done.\nOX: Drift:\t");
   Serial.print(drift_x * 10000000.0);
@@ -204,31 +193,10 @@ void loop()
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
 
-  float gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR /*- drift_x * dt*/;
-  float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR /*- drift_y * dt*/;
-  float gyroDeltaZ = gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR /*- drift_z * dt*/;
-  
-  /*
-  if(abs(gyroDeltaX) < abs(drift_x)){
-    gyroDeltaX = 0;
-  }
+  float gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x * dt;
+  float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y * dt;
+  float gyroDeltaZ = gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z * dt;
 
-  if(abs(gyroDeltaY) < abs(drift_y)){
-    gyroDeltaY = 0;
-  }
-
-  if(abs(gyroDeltaZ) < abs(drift_z)){
-    gyroDeltaZ = 0;
-  }
-  */
-  gyroDeltaX = (gyroDeltaX+drift_x)/2.0;
-  gyroDeltaY = (gyroDeltaY+drift_y)/2.0;
-  gyroDeltaZ = (gyroDeltaZ+drift_z)/2.0;  
-  
-  drift_x = gyroDeltaX;
-  drift_y = gyroDeltaY;
-  drift_z = gyroDeltaZ;
-  
   //  gyroAngleX += gyroDeltaX;
   //  gyroAngleY += gyroDeltaY;
   //  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
@@ -248,11 +216,11 @@ void loop()
   //float accTheta = acos(-az);
   
 
-//#ifdef DEBUG
-//  Serial.print(accAngleX); 
-//  Serial.print("\t");
-//  Serial.println(accAngleY);
-//#endif
+#ifdef DEBUG
+  Serial.print(accAngleX); 
+  Serial.print("\t");
+  Serial.println(accAngleY);
+#endif
 
   float yaw, pitch, roll;
   
@@ -287,23 +255,23 @@ void loop()
 //  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
   
   //complimentary filter - weighted average of both results: 
-  //q=Quaternion::average(q, 0.999, q2, 0.001);
+  q=Quaternion::average(q, 0.999, q2, 0.001);
 //  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
 
 
   float tempx, tempy, tempz;
   //q.getAngles(&tempx, &tempy, &tempz);
 
-//#ifdef DEBUG
-//
-//  Serial.print(tempx); 
-//  Serial.print("\t"); 
-//  Serial.print(tempy); 
-//  Serial.print("\t"); 
-//  Serial.print(tempz); 
-//  Serial.print("\n\n");
-//
-//#endif
+#ifdef DEBUG
+
+  Serial.print(tempx); 
+  Serial.print("\t"); 
+  Serial.print(tempy); 
+  Serial.print("\t"); 
+  Serial.print(tempz); 
+  Serial.print("\n\n");
+
+#endif
 
 #ifdef READABLE
   
@@ -362,14 +330,14 @@ void loop()
   
   q.getAngles(&alpha, &beta, &gamma);
   /*Serial.print(gamma);
-  Serial.print("\t");
+  Serial.print("\t");*/
 
   Serial.print(alpha);
   Serial.print("\t");
   Serial.print(beta);
   Serial.print("\t");
   Serial.print(gamma);
-  Serial.print("\t");*/
+  Serial.print("\t");
   
   
 //  q2.setByAngles(alpha, beta, gamma);
