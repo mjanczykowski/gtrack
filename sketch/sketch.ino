@@ -29,7 +29,7 @@
 #define MPU6050_GYROSCOPE_SCALE_FACTOR      131.0
 
 #define MIN_DT                              100   //in us
-#define CALIBRATION_TIME                    8000000  //in us
+#define CALIBRATION_TIME                    2000000  //in us
 
 #define KALMAN_Q_ANGLE                      0.001
 #define KALMAN_Q_GYROBIAS                   0.003
@@ -55,11 +55,11 @@
 #define HMC5883L_RA_DATAY_L                 0x08
 
 #define HMC5883L_OFFSET_X                   -122.5
-#define HMC5883L_OFFSET_Y                   226.5
+#define HMC5883L_OFFSET_Y                   230.5
 #define HMC5883L_OFFSET_Z                   46.5
-#define HMC5883L_SPREAD_X                   765.0
-#define HMC5883L_SPREAD_Y                   785.0
-#define HMC5883L_SPREAD_Z                   793.0
+#define HMC5883L_SPREAD_X                   813.0
+#define HMC5883L_SPREAD_Y                   831.0
+#define HMC5883L_SPREAD_Z                   753.0
 
 #define READABLE
 //#define DEBUG
@@ -236,6 +236,8 @@ void loop()
   R = R.rotateByVector(rotation);
   R.normalize();
   
+  Vector ypr = R.getYawPitchRoll();
+  
   //  gyroAngleX += gyroDeltaX;
   //  gyroAngleY += gyroDeltaY;
   //  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
@@ -247,10 +249,18 @@ void loop()
   //  accAngleX = atan2(-ay, -az) * RAD_TO_DEG;
   //  accAngleY = atan2(ax, sqrt(ay * ay + az * az)) * RAD_TO_DEG;
 
-//  accAngleX = atan2(ay, sqrt(ax * ax + az * az)) * RAD_TO_DEG;
-//  accAngleY = atan2(-ax, az) * RAD_TO_DEG;
+  accAngleX = atan2(ay, sqrt(ax * ax + az * az));
+  accAngleY = atan2(-ax, az);
 
+//  float cosx = cos(accAngleX), sinx = sin(accAngleX), cosy = cos(accAngleY), siny = sin(accAngleY);
+  float cosx = cos(-ypr.y), sinx = sin(-ypr.y), cosy = cos(ypr.x), siny = sin(ypr.x);
+  
+  float mxg = mx*cosy + my*siny*sinx + mz*siny*cosx;
+  float myg = my*cosx - mz*sinx;
+//  float mzg = -mx*sinx + my*cosx*siny + mz*cosx*cosy;
 
+//  float myg = -my*cosy - mz*siny;
+//  float mxg = my*sinx*siny + mx*cosx - mz*sinx*cosy;
 
   //float accTheta = acos(-az);
 
@@ -291,8 +301,6 @@ void loop()
   float theta = acos(-azz/17128.0);
   float vx = -ay/17128.0, vy = ax/17128.0, vz = 0;
 
-  Vector ypr = R.getYawPitchRoll();
-
   q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
 
   //  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
@@ -316,16 +324,17 @@ void loop()
 //  R.getZRow().print();
 //  ypr.printDeg();
 
-  /*Serial.print("mag:\t");
+  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
+  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
   Serial.print(mx); Serial.print("\t");
   Serial.print(my); Serial.print("\t");
   Serial.print(mz); Serial.print("\t");
 
-  float heading = atan2(my, mx);
+  float heading = atan2(myg, mxg);
   if(heading < 0)
     heading += 2 * M_PI;
   Serial.print("heading:\t");
-  Serial.println(heading * 180/M_PI);*/
+  Serial.println(heading * 180/M_PI);
   
 //  acc.print();
 
@@ -448,11 +457,7 @@ void getCurrentValuesFromMagnetometer(float *m_x, float *m_y, float *m_z){
   int8_t mz_h = mgn -> readRegister(HMC5883L_RA_DATAZ_H);
   int8_t mz_l = mgn -> readRegister(HMC5883L_RA_DATAZ_L);
   int16_t mz = (((int16_t)mz_h) << 8) | (mz_l & 0xff);
-  
-  Serial.print(mx); Serial.print("\t");
-  Serial.print(my); Serial.print("\t");
-  Serial.print(mz); Serial.print("\n");
-  
+
   (*m_x) = (float) mx + HMC5883L_OFFSET_X;
   (*m_y) = (float) (my + HMC5883L_OFFSET_Y) / HMC5883L_SPREAD_Y * HMC5883L_SPREAD_X;
   (*m_z) = (float) (mz + HMC5883L_OFFSET_Z) / HMC5883L_SPREAD_Z * HMC5883L_SPREAD_X;
