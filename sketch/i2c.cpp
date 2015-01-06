@@ -107,7 +107,6 @@ void I2CDevice::writeRegister(char reg, char value) {
 char I2CDevice::readRegister(char reg){
 	start(I2C_WRITE);
 	write(reg);
-
 	start(I2C_READ); // set device address and read mode
 	char ret = readLastByte();
 	stop();
@@ -116,13 +115,13 @@ char I2CDevice::readRegister(char reg){
 
 uint8_t I2CDevice::readNRegisters(char regStart, int n, char *buffer) {
         int i = 0;
-        if(!start(I2C_WRITE)) return 0;
-        if(!write(regStart)) return 0;
-        if(!start(I2C_READ)) return 0;
+        if(!start(I2C_WRITE)) return FALSE;
+        if(!write(regStart)) return FALSE;
+        if(!start(I2C_READ)) return FALSE;
         for(;i<n-1;i++){
           buffer[i] = readNextByte();
         }
         buffer[n-1] = readLastByte();
         stop();
-        return 1;
+        return TRUE;
 }
