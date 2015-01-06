@@ -37,7 +37,7 @@
 
 //correction consts
 #define W_RP                                1.0
-#define W_Y                                 0.1
+#define W_Y                                 1.0
 #define K_P                                 1.0
 #define K_I                                 0.0
 
@@ -61,14 +61,11 @@
 #define HMC5883L_SPREAD_Y                   831.0
 #define HMC5883L_SPREAD_Z                   753.0
 
-#define READABLE
+//#define READABLE
 //#define DEBUG
 
 //Device - accel/gyro MPU-6050 (GY-521)
 I2CDevice *dev, *mgn;
-
-//Kalman filters - X and Y axis
-KalmanFilter *kalmanX, *kalmanY;
 
 //We send teapot packet to Processing MPU DPM demo
 uint8_t teapotPacket[14] = {
@@ -88,13 +85,13 @@ float acc_v_x = 0.0, acc_v_y = 0.0, acc_v_z = 0.0;
 float comp_v_x = 0.0, comp_v_y = 0.0;
 
 //Quaternion to send to computer and converted values
-Quaternion q, q2;
+Quaternion q;
 uint16_t w, x, y, z;
 
 //DCM
 DCM R, R_aux;
 
-Vector rollPitchCorrectionPlane, totalCorrection, angVel_Pcorr, angVel_Icorr(0., 0., 0.), angVel_corr, rotation, angVel;
+Vector rollPitchCorrectionPlane, yawCorrectionPlane, totalCorrection, angVel_Pcorr, angVel_Icorr(0., 0., 0.), angVel_corr, rotation, angVel;
 
 int i = 0;
 long time = 0;
@@ -104,6 +101,7 @@ float ax, ay, az, gx, gy, gz;
 
 //Values from magnetometer
 float mx, my, mz;
+float initialHeading, heading;
 
 //Drift
 float drift_x = 0.0, drift_y = 0.0, drift_z = 0.0;
@@ -175,6 +173,16 @@ void setup()
   Serial.println();
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
+  
+  //heading
+  getCurrentValuesFromMagnetometer(&mx, &my, &mz);
+  
+  //TODO - read heading according to current gravity direction
+  
+  initialHeading = atan2(my, mx);
+  if(initialHeading < 0)
+    initialHeading += 2 * M_PI;
+  //
 
   currentTime = micros();
   newTime = 0;
@@ -204,28 +212,46 @@ void loop()
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
   getCurrentValuesFromMagnetometer(&mx, &my, &mz);
   
-//  float gyroDeltaX = gx * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x * dt;
-//  float gyroDeltaY = gy * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y * dt;
-//  float gyroDeltaZ = gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z * dt;
-
   float gyroAngVel_X = (gx / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_x) * DEG_TO_RAD;
   float gyroAngVel_Y = (gy / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_y) * DEG_TO_RAD;
   float gyroAngVel_Z = (gz / MPU6050_GYROSCOPE_SCALE_FACTOR - drift_z) * DEG_TO_RAD;
 
   angVel.setXYZ(gyroAngVel_X, gyroAngVel_Y, gyroAngVel_Z);
   rotation = angVel * (dt / 1000000.0);
-//  rotation.setXYZ(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
 
   R_aux = R.rotateByVector(rotation);
   R_aux.normalize();
   
+  Vector ypr = R.getYawPitchRoll();
+  
   //correction
+
+  //magnetometer axes are rotated 90 CCW around Z axis
+  float cosx = cos(-ypr.y), sinx = sin(-ypr.y), cosy = cos(ypr.x), siny = sin(ypr.x);
+  
+  float mxg = mx*cosy + my*siny*sinx + mz*siny*cosx;
+  float myg = my*cosx - mz*sinx;
+
+  heading = atan2(myg, mxg);
+  if(heading < 0)
+    heading += 2 * M_PI;
+    
+  heading -= initialHeading;
+  heading *= -1.;
+    
+  float headingX_ground = cos(heading);
+  float headingY_ground = sin(heading);
+  float yawCorrectionGround = - R.R[0][0]*headingY_ground + R.R[1][0]*headingX_ground;
+  
+  yawCorrectionPlane = R.getZRow() * yawCorrectionGround;
+  
+  //accelerometer
   Vector acc(ax, ay, az);
   acc.normalize();
   
   rollPitchCorrectionPlane = R_aux.getZRow().cross(acc);
   
-  totalCorrection = rollPitchCorrectionPlane * W_RP; // + W_Y * yawCorrection 
+  totalCorrection = rollPitchCorrectionPlane * W_RP + yawCorrectionPlane * W_Y;
   angVel_Pcorr = totalCorrection * K_P;
   angVel_Icorr = angVel_Icorr + totalCorrection * (K_I * (dt / 1000000.0));
   angVel_corr = angVel_Pcorr + angVel_Icorr;
@@ -236,33 +262,10 @@ void loop()
   R = R.rotateByVector(rotation);
   R.normalize();
   
-  Vector ypr = R.getYawPitchRoll();
+  ypr = R.getYawPitchRoll();
   
-  //  gyroAngleX += gyroDeltaX;
-  //  gyroAngleY += gyroDeltaY;
-  //  gyroAngleZ += gz * dt / 1000000.0 / MPU6050_GYROSCOPE_SCALE_FACTOR - drift * dt;
-
-//  gyro_v_x = gx / MPU6050_GYROSCOPE_SCALE_FACTOR;
-//  gyro_v_y = gy / MPU6050_GYROSCOPE_SCALE_FACTOR;
-  //  gyro_v_z = gz / MPU6050_GYROSCOPE_SCALE_FACTOR;
-
-  //  accAngleX = atan2(-ay, -az) * RAD_TO_DEG;
-  //  accAngleY = atan2(ax, sqrt(ay * ay + az * az)) * RAD_TO_DEG;
-
-  accAngleX = atan2(ay, sqrt(ax * ax + az * az));
-  accAngleY = atan2(-ax, az);
-
-//  float cosx = cos(accAngleX), sinx = sin(accAngleX), cosy = cos(accAngleY), siny = sin(accAngleY);
-  float cosx = cos(-ypr.y), sinx = sin(-ypr.y), cosy = cos(ypr.x), siny = sin(ypr.x);
-  
-  float mxg = mx*cosy + my*siny*sinx + mz*siny*cosx;
-  float myg = my*cosx - mz*sinx;
-//  float mzg = -mx*sinx + my*cosx*siny + mz*cosx*cosy;
-
-//  float myg = -my*cosy - mz*siny;
-//  float mxg = my*sinx*siny + mx*cosx - mz*sinx*cosy;
-
-  //float accTheta = acos(-az);
+//  accAngleX = atan2(ay, sqrt(ax * ax + az * az));
+//  accAngleY = atan2(-ax, az);
 
 
 #ifdef DEBUG
@@ -273,41 +276,7 @@ void loop()
 
   float yaw, pitch, roll;
 
-  //q is previous value updated with gyro readouts
-  //  q.getAngles(&pitch, &roll, &yaw);
-
-  //  compAngleX = 0.96 * (pitch + gyroDeltaX) + 0.04 * accAngleX; // Calculate the angle using a Complimentary filter
-  //  compAngleY = 0.96 * (roll + gyroDeltaY) + 0.04 * accAngleY;
-
-  //  q = q.rotateByAngles(gyroDeltaX * DEG_TO_RAD, gyroDeltaY * DEG_TO_RAD, gyroDeltaZ * DEG_TO_RAD);
-
-  //  q.getAngles(&pitch, &roll, &yaw); //is it necessary? just need updated yaw
-
-  //q.printQuaternion("q");
-
-  //q2 is current rotation from acc, the Z axis is taken from q
-  //  q2.setByAngles(accAngleX, accAngleY, yaw);
-  //  q2=q2.rotateByAngles(accAngleX * DEG_TO_RAD, accAngleY * DEG_TO_RAD, yaw * DEG_TO_RAD);
-
-  float azz = az;
-
-  if(az < -17128.0){
-    azz = - 17128.0; 
-  }
-  if(az > 17128.0){
-    azz = 17128.0;
-  }
-
-  float theta = acos(-azz/17128.0);
-  float vx = -ay/17128.0, vy = ax/17128.0, vz = 0;
-
   q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
-
-  //  q2 = Quaternion::fromThetaAndVector(theta, vx, vy, vz);
-
-  //complimentary filter - weighted average of both results: 
-  //  q=Quaternion::average(q, 0.99, q2, 0.01);
-  //  q2 = Quaternion::fromRotationVector(pitch * DEG_TO_RAD, roll * DEG_TO_RAD, yaw * DEG_TO_RAD);
 
 #ifdef READABLE
 
@@ -324,17 +293,14 @@ void loop()
 //  R.getZRow().print();
 //  ypr.printDeg();
 
-  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
-  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
-  Serial.print(mx); Serial.print("\t");
-  Serial.print(my); Serial.print("\t");
-  Serial.print(mz); Serial.print("\t");
-
-  float heading = atan2(myg, mxg);
-  if(heading < 0)
-    heading += 2 * M_PI;
-  Serial.print("heading:\t");
-  Serial.println(heading * 180/M_PI);
+//  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
+//  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
+//  Serial.print(mx); Serial.print("\t");
+//  Serial.print(my); Serial.print("\t");
+//  Serial.print(mz); Serial.print("\t");
+//
+//  Serial.print("heading:\t");
+//  Serial.println(heading * 180/M_PI);
   
 //  acc.print();
 
