@@ -119,7 +119,7 @@ void setup()
   dev -> writeRegister(MPU6050_GYROSCOPE_CONTROL_REGISTER, 0);
   
   mgn = new I2CDevice(HMC5883L_I2C_ADDRESS, I2C_BITRATE);
-  mgn -> writeRegister(HMC5883L_RA_CONFIG_A, 0x70);
+  mgn -> writeRegister(HMC5883L_RA_CONFIG_A, 0x78);
   mgn -> writeRegister(HMC5883L_RA_CONFIG_B, 0x20);
   mgn -> writeRegister(HMC5883L_RA_MODE, 0x01);
 
