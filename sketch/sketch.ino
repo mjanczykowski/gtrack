@@ -1,12 +1,12 @@
 #include "i2c.h"
 #include "quaternion.h"
-#include "kalman_filter.h"
 #include "dcm.h"
 #include <math.h>
 #include <inttypes.h>
 
 #define I2C_BITRATE                         200000
 
+//Gyroscope and accelerometer - MPU6050
 #define MPU6050_I2C_ADDRESS                 0x68
 #define MPU6050_IDLE_REGISTER               0x6b
 
@@ -28,12 +28,8 @@
 
 #define MPU6050_GYROSCOPE_SCALE_FACTOR      131.0
 
-#define MIN_DT                              100   //in us
+#define MIN_DT                              100      //in us
 #define CALIBRATION_TIME                    2000000  //in us
-
-#define KALMAN_Q_ANGLE                      0.001
-#define KALMAN_Q_GYROBIAS                   0.003
-#define KALMAN_R_ANGLE                      0.03
 
 //correction consts
 #define W_RP                                1.0
@@ -62,9 +58,8 @@
 #define HMC5883L_SPREAD_Z                   753.0
 
 //#define READABLE
-//#define DEBUG
 
-//Device - accel/gyro MPU-6050 (GY-521)
+//Device - accel/gyro MPU-6050 (GY-521) and magnetometer HMC5833L
 I2CDevice *dev, *mgn;
 
 //We send teapot packet to Processing MPU DPM demo
@@ -108,6 +103,12 @@ float drift_x = 0.0, drift_y = 0.0, drift_z = 0.0;
 
 //Function to get current values from MPU
 void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z);
+
+//Function to get current values from magnetometer
+void getCurrentValuesFromMagnetometer(float *m_x, float *m_y, float *m_z);
+
+//I2C buffers
+char mpu_buffer[14], magnetometer_buffer[6];
 
 void setup()
 {
@@ -168,7 +169,7 @@ void setup()
   Serial.println(drift_angle_y);
   Serial.print("OZ: Drift:\t");
   Serial.print(drift_z);
-  Serial.print("\t\tDrift angle:\t");
+  Serial.print("\tDrift angle:\t");
   Serial.println(drift_angle_z);
   Serial.println();
 
@@ -268,12 +269,6 @@ void loop()
 //  accAngleY = atan2(-ax, az);
 
 
-#ifdef DEBUG
-  Serial.print(accAngleX); 
-  Serial.print("\t");
-  Serial.println(accAngleY);
-#endif
-
   float yaw, pitch, roll;
 
   q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
@@ -292,17 +287,17 @@ void loop()
 //  R.getYRow().print();
 //  R.getZRow().print();
 //  ypr.printDeg();
-
+//
 //  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
 //  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
-//  Serial.print(mx); Serial.print("\t");
-//  Serial.print(my); Serial.print("\t");
-//  Serial.print(mz); Serial.print("\t");
-//
-//  Serial.print("heading:\t");
-//  Serial.println(heading * 180/M_PI);
+  Serial.print(mx); Serial.print("\t");
+  Serial.print(my); Serial.print("\t");
+  Serial.print(mz); Serial.print("\t");
+
+  Serial.print("heading:\t");
+  Serial.println(heading * 180/M_PI);
   
-//  acc.print();
+  //acc.print();
 
   /*Serial.print(gyroDeltaX, 8); 
    Serial.print("\t");
@@ -351,26 +346,7 @@ void loop()
   teapotPacket[8] = ((uint8_t)(z >> 8));
   teapotPacket[9] = ((uint8_t)(z & 0xFF));
 
-#ifndef DEBUG
-
   Serial.write(teapotPacket, 14);
-
-#else
-
-  Serial.print(q.w * 16384.0, 8); 
-  Serial.print("\t");
-  Serial.print(w, 8); 
-  Serial.print("\t");
-  Serial.print(teapotPacket[2]); 
-  Serial.print("\t");
-  Serial.print(teapotPacket[3]); 
-  Serial.print("\n");
-  Serial.print((((uint16_t)teapotPacket[2])<<8) + teapotPacket[3]); 
-  Serial.print("\n");
-  Serial.print("------------------------------------------------------------------\n");
-  delay(10);
-
-#endif //DEBUG
 
   teapotPacket[11]++;
 
@@ -378,28 +354,29 @@ void loop()
 }
 
 void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z){
-  int8_t ax_h = dev -> readRegister(MPU6050_ACCEL_X_AXIS_HIGH_REGISTER);
-  int8_t ax_l = dev -> readRegister(MPU6050_ACCEL_X_AXIS_LOW_REGISTER);
+  dev -> readNRegisters(MPU6050_ACCEL_X_AXIS_HIGH_REGISTER, 14, mpu_buffer);
+  int8_t ax_h = /*dev -> readRegister(MPU6050_ACCEL_X_AXIS_HIGH_REGISTER)/**/ /**/mpu_buffer[0]/**/ ;
+  int8_t ax_l = /*dev -> readRegister(MPU6050_ACCEL_X_AXIS_LOW_REGISTER)/**/ /**/mpu_buffer[1]/**/ ;
   int16_t ax = (((int16_t)ax_h) << 8) | (ax_l & 0xff);
 
-  int8_t ay_h = dev -> readRegister(MPU6050_ACCEL_Y_AXIS_HIGH_REGISTER);
-  int8_t ay_l = dev -> readRegister(MPU6050_ACCEL_Y_AXIS_LOW_REGISTER);
+  int8_t ay_h = /*dev -> readRegister(MPU6050_ACCEL_Y_AXIS_HIGH_REGISTER)/**/ /**/mpu_buffer[2]/**/ ;
+  int8_t ay_l = /*dev -> readRegister(MPU6050_ACCEL_Y_AXIS_LOW_REGISTER)/**/ /**/mpu_buffer[3]/**/ ;
   int16_t ay = (((int16_t)ay_h) << 8) | (ay_l & 0xff);
 
-  int8_t az_h = dev -> readRegister(MPU6050_ACCEL_Z_AXIS_HIGH_REGISTER);
-  int8_t az_l = dev -> readRegister(MPU6050_ACCEL_Z_AXIS_LOW_REGISTER);
+  int8_t az_h = /*dev -> readRegister(MPU6050_ACCEL_Z_AXIS_HIGH_REGISTER)/**/ /**/mpu_buffer[4]/**/ ;
+  int8_t az_l = /*dev -> readRegister(MPU6050_ACCEL_Z_AXIS_LOW_REGISTER)/**/ /**/mpu_buffer[5]/**/ ;
   int16_t az = (((int16_t)az_h) << 8) | (az_l & 0xff);
 
-  int8_t gx_h = dev -> readRegister(MPU6050_GYRO_X_AXIS_HIGH_REGISTER);
-  int8_t gx_l = dev -> readRegister(MPU6050_GYRO_X_AXIS_LOW_REGISTER);
+  int8_t gx_h = /*dev -> readRegister(MPU6050_GYRO_X_AXIS_HIGH_REGISTER)/**/ /**/mpu_buffer[8]/**/ ;
+  int8_t gx_l = /*dev -> readRegister(MPU6050_GYRO_X_AXIS_LOW_REGISTER)/**/ /**/mpu_buffer[9]/**/ ;
   int16_t gx = (((int16_t)gx_h) << 8) | (gx_l & 0xff);
 
-  int8_t gy_h = dev -> readRegister(MPU6050_GYRO_Y_AXIS_HIGH_REGISTER);
-  int8_t gy_l = dev -> readRegister(MPU6050_GYRO_Y_AXIS_LOW_REGISTER);
+  int8_t gy_h = /*dev -> readRegister(MPU6050_GYRO_Y_AXIS_HIGH_REGISTER)/**/ /**/mpu_buffer[10]/**/ ;
+  int8_t gy_l = /*dev -> readRegister(MPU6050_GYRO_Y_AXIS_LOW_REGISTER)/**/ /**/mpu_buffer[11]/**/ ;
   int16_t gy = (((int16_t)gy_h) << 8) | (gy_l & 0xff);
 
-  int8_t gz_h = dev -> readRegister(MPU6050_GYRO_Z_AXIS_HIGH_REGISTER);
-  int8_t gz_l = dev -> readRegister(MPU6050_GYRO_Z_AXIS_LOW_REGISTER);
+  int8_t gz_h = /*dev -> readRegister(MPU6050_GYRO_Z_AXIS_HIGH_REGISTER)/**/ /**/mpu_buffer[12]/**/ ;
+  int8_t gz_l = /*dev -> readRegister(MPU6050_GYRO_Z_AXIS_LOW_REGISTER)/**/ /**/mpu_buffer[13]/**/ ;
   int16_t gz = (((int16_t)gz_h) << 8) | (gz_l & 0xff);
 
   (*a_x) = (float) ax;
@@ -412,16 +389,18 @@ void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, flo
 
 
 void getCurrentValuesFromMagnetometer(float *m_x, float *m_y, float *m_z){
-  int8_t mx_h = mgn -> readRegister(HMC5883L_RA_DATAX_H);
-  int8_t mx_l = mgn -> readRegister(HMC5883L_RA_DATAX_L);
+  //mgn -> readNRegisters(HMC5883L_RA_DATAX_H, 6, magnetometer_buffer);
+  
+  int8_t mx_h = mgn -> readRegister(HMC5883L_RA_DATAX_H)/**/ /*magnetometer_buffer[0]/**/ ;
+  int8_t mx_l = mgn -> readRegister(HMC5883L_RA_DATAX_L)/**/ /*magnetometer_buffer[1]/**/ ;
   int16_t mx = (((int16_t)mx_h) << 8) | (mx_l & 0xff);
   
-  int8_t my_h = mgn -> readRegister(HMC5883L_RA_DATAY_H);
-  int8_t my_l = mgn -> readRegister(HMC5883L_RA_DATAY_L);
+  int8_t my_h = mgn -> readRegister(HMC5883L_RA_DATAY_H)/**/ /*magnetometer_buffer[2]/**/ ;
+  int8_t my_l = mgn -> readRegister(HMC5883L_RA_DATAY_L)/**/ /*magnetometer_buffer[3]/**/ ;
   int16_t my = (((int16_t)my_h) << 8) | (my_l & 0xff);
   
-  int8_t mz_h = mgn -> readRegister(HMC5883L_RA_DATAZ_H);
-  int8_t mz_l = mgn -> readRegister(HMC5883L_RA_DATAZ_L);
+  int8_t mz_h = mgn -> readRegister(HMC5883L_RA_DATAZ_H)/**/ /*magnetometer_buffer[4]/**/ ;
+  int8_t mz_l = mgn -> readRegister(HMC5883L_RA_DATAZ_L)/**/ /*magnetometer_buffer[5]/**/ ;
   int16_t mz = (((int16_t)mz_h) << 8) | (mz_l & 0xff);
 
   (*m_x) = (float) mx + HMC5883L_OFFSET_X;
