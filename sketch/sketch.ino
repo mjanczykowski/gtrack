@@ -405,7 +405,7 @@ void loop()
   
 #else
 
-//  Serial.write(teapotPacket, 14);
+  Serial.write(teapotPacket, 14);
 
 #endif /* VJOY */
 
