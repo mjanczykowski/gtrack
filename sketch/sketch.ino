@@ -58,13 +58,24 @@
 #define HMC5883L_SPREAD_Z                   753.0
 
 //#define READABLE
+//#define DEBUG
+#define VJOY
 
 //Device - accel/gyro MPU-6050 (GY-521) and magnetometer HMC5833L
 I2CDevice *dev, *mgn;
 
+#ifdef VJOY
+
+//packet with 3x short for virtual joystick
+uint8_t teapotPacket[10] = {'$', 0x02, 0, 0, 0, 0, 0, 0, '\r', '\n'};
+
+#else
+
 //We send teapot packet to Processing MPU DPM demo
 uint8_t teapotPacket[14] = {
   '$', 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\r', '\n'};
+  
+#endif
 
 //Time related values
 unsigned long currentTime, newTime, dt;
@@ -272,6 +283,28 @@ void loop()
   float yaw, pitch, roll;
 
   q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
+  
+#ifdef VJOY
+  //prepare data for v-joy
+  float newZ =  atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
+  float newY = -asin(-2.0 * (q.x * q.z - q.w * q.y));
+  float newX = -atan2(2.0 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
+  
+  // scale to range -32767 to 32767
+  newX = newX * 10430.06; //  = 64k / (2*M_PI)
+  newY = newY * 10430.06;
+  newZ = newZ * 10430.06;
+  
+  //clamp at 90 degrees left and right (what for?)
+//  newX = constrain(newX, -16383.0, 16383.0);
+//  newY = constrain(newY, -16383.0, 16383.0);
+//  newZ = constrain(newZ, -16383.0, 16383.0);
+  
+  short joyX = constrain((long)newX, -32767, 32767);
+  short joyY = constrain((long)newY, -32767, 32767);
+  short joyZ = constrain((long)newZ, -32767, 32767);
+  
+#endif
 
 #ifdef READABLE
 
@@ -332,6 +365,17 @@ void loop()
 
 #else
 
+#ifdef VJOY
+
+  teapotPacket[2] = ((uint8_t)(joyX >> 8));
+  teapotPacket[3] = ((uint8_t)(joyX & 0xFF));
+  teapotPacket[4] = ((uint8_t)(joyY >> 8));
+  teapotPacket[5] = ((uint8_t)(joyY & 0xFF));
+  teapotPacket[6] = ((uint8_t)(joyZ >> 8));
+  teapotPacket[7] = ((uint8_t)(joyZ & 0xFF));
+
+#else
+
   w = q.w * 16384.0;
   x = q.x * 16384.0;
   y = q.y * 16384.0;
@@ -345,8 +389,21 @@ void loop()
   teapotPacket[7] = ((uint8_t)(y & 0xFF));
   teapotPacket[8] = ((uint8_t)(z >> 8));
   teapotPacket[9] = ((uint8_t)(z & 0xFF));
+  
+#endif /*VJOY*/
 
-  Serial.write(teapotPacket, 14);
+#ifndef DEBUG
+
+#ifdef VJOY
+
+  //v-joy packet is smaller
+  Serial.write(teapotPacket, 10);
+  
+#else
+
+//  Serial.write(teapotPacket, 14);
+
+#endif /* VJOY */
 
   teapotPacket[11]++;
 
