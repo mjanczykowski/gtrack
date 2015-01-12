@@ -405,6 +405,15 @@ void loop()
 
 #endif /* VJOY */
 
+  //v-joy packet is smaller
+  Serial.write(teapotPacket, 10);
+  
+#else
+
+//  Serial.write(teapotPacket, 14);
+
+#endif /* VJOY */
+
   teapotPacket[11]++;
 
 #endif //READABLE
