@@ -1,0 +1,7 @@
+*.suo
+*.obj
+*.o
+gtrack2joy/gtrack2joy/obj/
+gtrack2joy/gtrack2joy/bin
+!gtrack2joy/gtrack2joy/bin/*.dll
+!gtrack2joy/gtrack2joy/bin/*.exe

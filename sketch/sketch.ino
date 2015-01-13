@@ -286,9 +286,9 @@ void loop()
   
 #ifdef VJOY
   //prepare data for v-joy
-  float newZ =  atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
-  float newY = -asin(-2.0 * (q.x * q.z - q.w * q.y));
-  float newX = -atan2(2.0 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
+  float newX =  atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
+  float newY = asin(-2.0 * (q.x * q.z - q.w * q.y));
+  float newZ = -atan2(2.0 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
   
   // scale to range -32767 to 32767
   newX = newX * 10430.06; //  = 64k / (2*M_PI)
@@ -315,12 +315,14 @@ void loop()
     i++;
     return;
   }
+
+#ifndef VJOY
   
 //  R.getXRow().print();
 //  R.getYRow().print();
 //  R.getZRow().print();
-//  ypr.printDeg();
-//
+ypr.printDeg();
+
 //  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
 //  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
   Serial.print(mx); Serial.print("\t");
@@ -358,7 +360,15 @@ void loop()
    Serial.print("\t");
    Serial.print(accAngleY, 8);
    Serial.print("\t");*/
+#else
+  
+  Serial.print(joyX);
+  Serial.print("\t");
+  Serial.print(joyY);
+  Serial.print("\t");
+  Serial.print(joyZ);
 
+#endif
   Serial.print("\n");
 
   time = micros();
@@ -414,9 +424,14 @@ void loop()
 
 #endif /* VJOY */
 
+#ifndef VJOY
+
   teapotPacket[11]++;
 
+#endif
+
 #endif //READABLE
+  delay(10);
 }
 
 void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z){
