@@ -58,13 +58,24 @@
 #define HMC5883L_SPREAD_Z                   753.0
 
 //#define READABLE
+//#define DEBUG
+#define VJOY
 
 //Device - accel/gyro MPU-6050 (GY-521) and magnetometer HMC5833L
 I2CDevice *dev, *mgn;
 
+#ifdef VJOY
+
+//packet with 3x short for virtual joystick
+uint8_t teapotPacket[10] = {'$', 0x02, 0, 0, 0, 0, 0, 0, '\r', '\n'};
+
+#else
+
 //We send teapot packet to Processing MPU DPM demo
 uint8_t teapotPacket[14] = {
   '$', 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\r', '\n'};
+  
+#endif
 
 //Time related values
 unsigned long currentTime, newTime, dt;
@@ -265,13 +276,31 @@ void loop()
   
   ypr = R.getYawPitchRoll();
   
-//  accAngleX = atan2(ay, sqrt(ax * ax + az * az));
-//  accAngleY = atan2(-ax, az);
-
-
   float yaw, pitch, roll;
 
   q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
+  
+#ifdef VJOY
+  //prepare data for v-joy
+  float newX =  atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
+  float newY = asin(-2.0 * (q.x * q.z - q.w * q.y));
+  float newZ = -atan2(2.0 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
+  
+  // scale to range -32767 to 32767
+  newX = newX * 10430.06; //  = 64k / (2*M_PI)
+  newY = newY * 10430.06;
+  newZ = newZ * 10430.06;
+  
+  //clamp at 90 degrees left and right (what for?)
+//  newX = constrain(newX, -16383.0, 16383.0);
+//  newY = constrain(newY, -16383.0, 16383.0);
+//  newZ = constrain(newZ, -16383.0, 16383.0);
+  
+  short joyX = constrain((long)newX, -32767, 32767);
+  short joyY = constrain((long)newY, -32767, 32767);
+  short joyZ = constrain((long)newZ, -32767, 32767);
+  
+#endif
 
 #ifdef READABLE
 
@@ -282,14 +311,11 @@ void loop()
     i++;
     return;
   }
+
+#ifndef VJOY
   
-//  R.getXRow().print();
-//  R.getYRow().print();
-//  R.getZRow().print();
-//  ypr.printDeg();
-//
-//  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
-//  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
+  ypr.printDeg();
+
   Serial.print(mx); Serial.print("\t");
   Serial.print(my); Serial.print("\t");
   Serial.print(mz); Serial.print("\t");
@@ -297,38 +323,29 @@ void loop()
   Serial.print("heading:\t");
   Serial.println(heading * 180/M_PI);
   
-  //acc.print();
+#else
+  
+  Serial.print(joyX);
+  Serial.print("\t");
+  Serial.print(joyY);
+  Serial.print("\t");
+  Serial.print(joyZ);
 
-  /*Serial.print(gyroDeltaX, 8); 
-   Serial.print("\t");
-   Serial.print(gyroDeltaY, 8); 
-   Serial.print("\t");
-   Serial.print(gyroDeltaZ, 8); 
-   Serial.print("\t");
-   */
-  /*Serial.print(pitch, 8); 
-   Serial.print("\t");
-   Serial.print(roll, 8); 
-   Serial.print("\t");
-   Serial.print(yaw, 8); 
-   Serial.print("\t");
-   Serial.print(ax/17128.0, 8); 
-   Serial.print("\t");
-   Serial.print(ay/17128.0, 8); 
-   Serial.print("\t");
-   Serial.print(az/17128.0, 8); 
-   Serial.print("\t");
-   Serial.print(acos(-azz/17128.0)); 
-   Serial.print("\t");*/
-
-  /*Serial.print(accAngleX, 8);
-   Serial.print("\t");
-   Serial.print(accAngleY, 8);
-   Serial.print("\t");*/
-
+#endif
   Serial.print("\n");
 
   time = micros();
+
+#else
+
+#ifdef VJOY
+
+  teapotPacket[2] = ((uint8_t)(joyX >> 8));
+  teapotPacket[3] = ((uint8_t)(joyX & 0xFF));
+  teapotPacket[4] = ((uint8_t)(joyY >> 8));
+  teapotPacket[5] = ((uint8_t)(joyY & 0xFF));
+  teapotPacket[6] = ((uint8_t)(joyZ >> 8));
+  teapotPacket[7] = ((uint8_t)(joyZ & 0xFF));
 
 #else
 
@@ -345,12 +362,47 @@ void loop()
   teapotPacket[7] = ((uint8_t)(y & 0xFF));
   teapotPacket[8] = ((uint8_t)(z >> 8));
   teapotPacket[9] = ((uint8_t)(z & 0xFF));
+  
+#endif /*VJOY*/
+
+#ifndef DEBUG
+
+#ifdef VJOY
+
+  //v-joy packet is smaller
+  Serial.write(teapotPacket, 10);
+  
+#else
 
   Serial.write(teapotPacket, 14);
 
+#endif /* VJOY */
+
+#else
+
+  Serial.print(q.w * 16384.0, 8); 
+  Serial.print("\t");
+  Serial.print(w, 8); 
+  Serial.print("\t");
+  Serial.print(teapotPacket[2]); 
+  Serial.print("\t");
+  Serial.print(teapotPacket[3]); 
+  Serial.print("\n");
+  Serial.print((((uint16_t)teapotPacket[2])<<8) + teapotPacket[3]); 
+  Serial.print("\n");
+  Serial.print("------------------------------------------------------------------\n");
+  delay(10);
+
+#endif //DEBUG
+
+#ifndef VJOY
+
   teapotPacket[11]++;
 
+#endif
+
 #endif //READABLE
+  delay(10);
 }
 
 void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z){
