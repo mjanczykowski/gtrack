@@ -45,7 +45,6 @@ uint8_t I2CDevice::start(uint8_t type){
 	 */
 	twst = TWSR & 0xF8;
 	if ((twst != TWI_MTX_ADR_ACK) && (twst != TWI_MRX_ADR_ACK)) return FALSE;
-
 	return TRUE;
 }
 
@@ -78,7 +77,6 @@ uint8_t I2CDevice::write(uint8_t byte) {
 	*/
 	twst = TWSR & 0xF8;
 	if (twst != TWI_MTX_DATA_ACK) return FALSE;
-
 	return TRUE;
 }
 
@@ -86,7 +84,6 @@ uint8_t I2CDevice::readNextByte() {
 	if(!status) return FALSE;
 	TWCR = (1<<TWINT)|(1<<TWEN)|(1<<TWEA);
 	while (!(TWCR & (1<<TWINT)));   
-
 	return TWDR;
 }
 
@@ -107,16 +104,21 @@ void I2CDevice::writeRegister(char reg, char value) {
 char I2CDevice::readRegister(char reg){
 	start(I2C_WRITE);
 	write(reg);
-
 	start(I2C_READ); // set device address and read mode
 	char ret = readLastByte();
 	stop();
 	return ret;
 } 
 
-char* I2CDevice::readNRegisters(char regStart, int n) {
-	char *data = new char[n];
-	for(int i = 0; i < n; i++)
-		data[i] = readRegister(regStart + i);
-	return data;
+uint8_t I2CDevice::readNRegisters(char regStart, int n, char *buffer) {
+        int i = 0;
+        if(!start(I2C_WRITE)) return FALSE;
+        if(!write(regStart)) return FALSE;
+        if(!start(I2C_READ)) return FALSE;
+        for(;i<n-1;i++){
+          buffer[i] = readNextByte();
+        }
+        buffer[i] = readLastByte();
+        stop();
+        return TRUE;
 }

@@ -67,7 +67,7 @@ class I2CDevice{
 		uint8_t readNextByte();
 		uint8_t readLastByte();
 		char readRegister(char reg);
-		char* readNRegisters(char regStart, int n);
+		uint8_t readNRegisters(char regStart, int n, char *buffer);
 		void writeRegister(char reg, char val);
 };
 

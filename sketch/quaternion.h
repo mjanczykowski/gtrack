@@ -29,4 +29,4 @@ class Quaternion
     void printQuaternion(char *text, int enter);
 };
 
-#endif /* QUATERNION_H */
+#endif /* QUATERNION_H */  
