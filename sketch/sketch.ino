@@ -276,10 +276,6 @@ void loop()
   
   ypr = R.getYawPitchRoll();
   
-//  accAngleX = atan2(ay, sqrt(ax * ax + az * az));
-//  accAngleY = atan2(-ax, az);
-
-
   float yaw, pitch, roll;
 
   q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
@@ -318,13 +314,8 @@ void loop()
 
 #ifndef VJOY
   
-//  R.getXRow().print();
-//  R.getYRow().print();
-//  R.getZRow().print();
   ypr.printDeg();
 
-//  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
-//  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
   Serial.print(mx); Serial.print("\t");
   Serial.print(my); Serial.print("\t");
   Serial.print(mz); Serial.print("\t");
@@ -332,34 +323,6 @@ void loop()
   Serial.print("heading:\t");
   Serial.println(heading * 180/M_PI);
   
-  //acc.print();
-
-  /*Serial.print(gyroDeltaX, 8); 
-   Serial.print("\t");
-   Serial.print(gyroDeltaY, 8); 
-   Serial.print("\t");
-   Serial.print(gyroDeltaZ, 8); 
-   Serial.print("\t");
-   */
-  /*Serial.print(pitch, 8); 
-   Serial.print("\t");
-   Serial.print(roll, 8); 
-   Serial.print("\t");
-   Serial.print(yaw, 8); 
-   Serial.print("\t");
-   Serial.print(ax/17128.0, 8); 
-   Serial.print("\t");
-   Serial.print(ay/17128.0, 8); 
-   Serial.print("\t");
-   Serial.print(az/17128.0, 8); 
-   Serial.print("\t");
-   Serial.print(acos(-azz/17128.0)); 
-   Serial.print("\t");*/
-
-  /*Serial.print(accAngleX, 8);
-   Serial.print("\t");
-   Serial.print(accAngleY, 8);
-   Serial.print("\t");*/
 #else
   
   Serial.print(joyX);
@@ -414,6 +377,23 @@ void loop()
   Serial.write(teapotPacket, 14);
 
 #endif /* VJOY */
+
+#else
+
+  Serial.print(q.w * 16384.0, 8); 
+  Serial.print("\t");
+  Serial.print(w, 8); 
+  Serial.print("\t");
+  Serial.print(teapotPacket[2]); 
+  Serial.print("\t");
+  Serial.print(teapotPacket[3]); 
+  Serial.print("\n");
+  Serial.print((((uint16_t)teapotPacket[2])<<8) + teapotPacket[3]); 
+  Serial.print("\n");
+  Serial.print("------------------------------------------------------------------\n");
+  delay(10);
+
+#endif //DEBUG
 
 #ifndef VJOY
 
