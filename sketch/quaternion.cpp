@@ -52,30 +52,6 @@ Quaternion Quaternion::fromRotationVector(float vx, float vy, float vz)
   );
   
   return qx * qy * qz;
-  
-  
-//  float c1 = cos(vy), c2 = cos(vz), c3 = cos(vx);
-//  float s1 = sin(vy * 0.5), s2 = sin(vz * 0.5), s3 = sin(vx * 0.5);
-//  float c1c2 = c1 * c2;
-//  float s1s2 = s1 * s2;
-//  
-//  return Quaternion(
-//    c1c2*c3 - s1s2*s3,
-//    c1c2*s3 + s1s2*c3,
-//    s1*c2*c3 + c1*s2*s3,
-//    c1*s2*c3 - s1*c2*s3
-//  );
-  
-//  float v_norm = sqrt(vx*vx + vy*vy + vz*vz);
-//  
-//  float s = sin(v_norm * 0.5) / v_norm;
-//  
-//  return Quaternion(
-//    cos(v_norm * 0.5),
-//    vx * s,
-//    vy * s,
-//    vz * s
-//  );
 }
    
 void Quaternion::setByAngles(float pitch, float roll, float yaw)
@@ -88,10 +64,6 @@ void Quaternion::setByAngles(float pitch, float roll, float yaw)
   float c1 = cos(a), c2 = cos(b), c3 = cos(c);
   float s1 = sin(a), s2 = sin(b), s3 = sin(c);
 
-//  w = c1*c2*c3 + s1*s2*s3;
-//  x = c1*s2*s3 - s1*c2*s3;
-//  y = s1*c2*c3 + c1*s2*s3;
-//  z = c1*c2*s3 - s1*s2*c3;
   w = c1*c2*c3 - s1* s2*s3;
   x = c1*c3*s2 - s1*c2*s3;
   y = c1*s2*s3 + c2*c3*s1;
@@ -100,10 +72,6 @@ void Quaternion::setByAngles(float pitch, float roll, float yaw)
 
 void Quaternion::getAngles(float *phi, float *theta, float *psi)
 {
-//  (*psi) = -atan2(2*x*y - 2*w*z, 2*w*w + 2*x*x - 1); // psi
-//  (*theta) = asin(2*x*z + 2*w*y); // theta
-//  (*phi) = -atan2(2*y*z - 2*w*x, 2*w*w + 2*z*z - 1); // phi
-
   (*theta) = atan2(-2*x*z + 2*w*y, z*z - y*y - x*x + w*w);
   (*phi) = asin(2*y*z + 2*w*x);
   (*psi) = atan2(-2*x*y + 2*w*z, y*y - z*z + w*w - x*x);
@@ -163,9 +131,6 @@ Quaternion Quaternion::average(Quaternion q, float q_weight, Quaternion p, float
 Quaternion Quaternion::rotateByAngles(float vx, float vy, float vz)
 {
   Quaternion q_rot = fromRotationVector(vx, vy, vz);
-  /*Serial.print(vx,10);Serial.print("\t");
-  Serial.print(vy,10);Serial.print("\t");
-  Serial.print(vz,10);Serial.print("\t");*/
   return (*this) * q_rot;
 }
 
