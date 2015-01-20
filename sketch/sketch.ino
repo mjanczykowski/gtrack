@@ -321,7 +321,7 @@ void loop()
 //  R.getXRow().print();
 //  R.getYRow().print();
 //  R.getZRow().print();
-ypr.printDeg();
+  ypr.printDeg();
 
 //  Serial.print(ypr.x * RAD_TO_DEG); Serial.print("\t");
 //  Serial.print(ypr.y * RAD_TO_DEG); Serial.print("\t");
@@ -411,16 +411,7 @@ ypr.printDeg();
   
 #else
 
-//  Serial.write(teapotPacket, 14);
-
-#endif /* VJOY */
-
-  //v-joy packet is smaller
-  Serial.write(teapotPacket, 10);
-  
-#else
-
-//  Serial.write(teapotPacket, 14);
+  Serial.write(teapotPacket, 14);
 
 #endif /* VJOY */
 
