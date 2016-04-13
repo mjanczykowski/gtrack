@@ -1,13 +1,17 @@
+/* GTRACK v. 0.1
+ * 
+ * (C) 2016 Michał Ciołczyk, Michał Janczykowski
+ */
+
+#include <I2Cdev.h>
+
+extern "C" {
+#include <inv_mpu.h>
+#include <inv_mpu_dmp_motion_driver.h>
+}
+
 #include "mpu9250.h"
-#include <Arduino.h>
-
-MPU9250Device::MPU9250Device() {
-  
-}
-
-MPU9250Device::~MPU9250Device() {
-  
-}
+#include "quaternion.h"
 
 void MPU9250Device::init() {
   mpu_init(&this->revision);
@@ -43,4 +47,34 @@ void MPU9250Device::enable() {
 void MPU9250Device::disable() {
   mpu_set_dmp_state(0);
 }
+
+void MPU9250Device::getAnglesAndAccelerometer(float *angles, float *accelerometer) {
+  long unsigned int sensor_data;
+  long quat[4];
+  short gyro[3], accel[3], sensors;
+  unsigned char more;
+  dmp_read_fifo(gyro, accel, quat, &sensor_data, &sensors, &more);
+  Quaternion q((float)quat[0] / QUAT_SCALEFACTOR, (float)quat[1] / QUAT_SCALEFACTOR,
+               (float)quat[2] / QUAT_SCALEFACTOR, (float)quat[3] / QUAT_SCALEFACTOR);
+  q.getAngles(&angles[0], &angles[1], &angles[2]);
+  accelerometer[0] = (float) accel[0];
+  accelerometer[1] = (float) accel[1];
+  accelerometer[2] = (float) accel[2];
+}
+
+void MPU9250Device::getMagnetometer(float *values) {
+  unsigned char magSampled;
+  short mag[3];
+  magSampled  = mpu_get_compass_reg(mag);
+  if(magSampled == 0) {
+    values[0] = (float)mag[0] / MAG_SCALEFACTOR;
+    values[1] = (float)mag[1] / MAG_SCALEFACTOR;
+    values[2] = (float)mag[2] / MAG_SCALEFACTOR;
+  }
+}
+
+void MPU9250Device::calibrate() {
+  
+}
+
 

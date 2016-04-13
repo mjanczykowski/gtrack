@@ -1,11 +1,8 @@
-#include <I2Cdev.h>
-#include <helper_3dmath.h>
-
-extern "C" {
-#include <inv_mpu.h>
-#include <inv_mpu_dmp_motion_driver.h>
-}
-
+/* GTRACK v. 0.1
+ * 
+ * (C) 2016 Michał Ciołczyk, Michał Janczykowski
+ */
+ 
 #ifndef _MPU9250_LIB
 #define _MPU9250_LIB
 
@@ -13,22 +10,22 @@ extern "C" {
 #define _TWOPI           65536.0
 #define DEFAULT_MPU_HZ   200
 #define GYRO_ORIENTATION B10000101
+#define MAG_SCALEFACTOR  4.f
+#define QUAT_SCALEFACTOR 1073741824.0f
 
 class MPU9250Device {
-  MPU9250Device();
-  ~MPU9250Device();
-
+  public:
   void init();
   void enable();
   void disable();
-  void getAngles(float *angles);
-  void getMagnetometer(float *angle);
+  void getAnglesAndAccelerometer(float *angles, float *accelerometer);
+  void getMagnetometer(float *values);
   void calibrate();
 
   private:
   unsigned char revision;
-  short calibrationPhase = 0;
 };
 
 #endif
+
 
