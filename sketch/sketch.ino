@@ -124,10 +124,10 @@ char mpu_buffer[14], magnetometer_buffer[6];
 
 void setup()
 {
-//  Serial.begin(115200);
-//  Serial.println();
+  Serial.begin(115200);
+  Serial.println();
 
-  Joystick.begin();
+  Joystick.begin(false);
 
   dev = new I2CDevice(MPU6050_I2C_ADDRESS, I2C_BITRATE);
   dev -> writeRegister(MPU6050_IDLE_REGISTER, 0);
@@ -143,7 +143,7 @@ void setup()
 
   float prev_gz = gz;
 
-//  Serial.println("Calibrating...");
+  Serial.println("Calibrating...");
 
   float drift_angle_x = 0.0, drift_angle_y = 0.0, drift_angle_z = 0.0;
 
@@ -173,7 +173,7 @@ void setup()
   drift_y = drift_angle_y / CALIBRATION_TIME * 1000000.0;  
   drift_z = drift_angle_z / CALIBRATION_TIME * 1000000.0;
 
-/*  Serial.print("Done.\nOX: Drift:\t");
+  Serial.print("Done.\nOX: Drift:\t");
   Serial.print(drift_x);
   Serial.print("\tDrift angle:\t");
   Serial.println(drift_angle_x);
@@ -185,7 +185,7 @@ void setup()
   Serial.print(drift_z);
   Serial.print("\tDrift angle:\t");
   Serial.println(drift_angle_z);
-  Serial.println();*/
+  Serial.println();
 
   getCurrentValuesFromMPU(&ax, &ay, &az, &gx, &gy, &gz);
   
@@ -290,27 +290,27 @@ void loop()
   float newZ = -atan2(2.0 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
   
   // scale to range -32767 to 32767
-//  newX = newX * 10430.06; //  = 64k / (2*M_PI)
-//  newY = newY * 10430.06;
-//  newZ = newZ * 10430.06;
+  newX = newX * 10430.06; //  = 64k / (2*M_PI)
+  newY = newY * 10430.06;
+  newZ = newZ * 10430.06;
 
   // scale to range -127 to 127
-  newX = newX * 40.74367; //  = 256 / (2*M_PI)
-  newY = newY * 40.74367;
-  newZ = newZ * 40.74367;
+//  newX = newX * 40.74367; //  = 256 / (2*M_PI)
+//  newY = newY * 40.74367;
+//  newZ = newZ * 40.74367;
   
   //clamp at 90 degrees left and right (what for?)
 //  newX = constrain(newX, -16383.0, 16383.0);
 //  newY = constrain(newY, -16383.0, 16383.0);
 //  newZ = constrain(newZ, -16383.0, 16383.0);
   
-//  short joyX = constrain((long)newX, -32767, 32767);
-//  short joyY = constrain((long)newY, -32767, 32767);
-//  short joyZ = constrain((long)newZ, -32767, 32767);
+  short joyX = constrain((long)newX, -32767, 32767);
+  short joyY = constrain((long)newY, -32767, 32767);
+  short joyZ = constrain((long)newZ, -32767, 32767);
 
-  byte joyX = constrain((long)newX, -127, 127);
-  byte joyY = constrain((long)newY, -127, 127);
-  byte joyZ = constrain((long)newZ, -127, 127);
+//  byte joyX = constrain((long)newX, -127, 127);
+//  byte joyY = constrain((long)newY, -127, 127);
+//  byte joyZ = constrain((long)newZ, -127, 127);
   
 #endif
 
@@ -337,14 +337,14 @@ void loop()
   
 #else
   
-//  Serial.print(joyX);
-//  Serial.print("\t");
-//  Serial.print(joyY);
-//  Serial.print("\t");
-//  Serial.print(joyZ);
+  Serial.print(joyX);
+  Serial.print("\t");
+  Serial.print(joyY);
+  Serial.print("\t");
+  Serial.print(joyZ);
 
 #endif
-//  Serial.print("\n");
+  Serial.print("\n");
 
   time = micros();
 
@@ -385,9 +385,10 @@ void loop()
 
   //v-joy packet is smaller
 //  Serial.write(teapotPacket, 10);
-  Joystick.setXAxis(joyX);
-  Joystick.setYAxis(joyY);
-  Joystick.setZAxis(joyZ);
+  Joystick.setXAxisRotation(joyX);
+  Joystick.setYAxisRotation(joyY);
+  Joystick.setZAxisRotation(joyZ);
+  Joystick.sendState();
   
 #else
 
