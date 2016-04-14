@@ -58,9 +58,8 @@
 #define HMC5883L_SPREAD_Y                   831.0
 #define HMC5883L_SPREAD_Z                   753.0
 
-//#define READABLE
 //#define DEBUG
-#define VJOY
+//#define TEAPOT
 
 //Device - accel/gyro MPU-6050 (GY-521) and magnetometer HMC5833L
 I2CDevice *dev, *mgn;
@@ -68,17 +67,10 @@ I2CDevice *dev, *mgn;
 //HID Game Controller
 GameController controller;
 
-#ifdef VJOY
-
-//packet with 3x short for virtual joystick
-uint8_t teapotPacket[10] = {'$', 0x02, 0, 0, 0, 0, 0, 0, '\r', '\n'};
-
-#else
-
+#ifdef TEAPOT
 //We send teapot packet to Processing MPU DPM demo
 uint8_t teapotPacket[14] = {
   '$', 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\r', '\n'};
-  
 #endif
 
 //Time related values
@@ -286,8 +278,7 @@ void loop()
 
   q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
   
-#ifdef VJOY
-  //prepare data for v-joy
+  //prepare data for game controller
   float newX =  atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
   float newY = asin(-2.0 * (q.x * q.z - q.w * q.y));
   float newZ = -atan2(2.0 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
@@ -296,11 +287,6 @@ void loop()
   newX = newX * 10430.06; //  = 64k / (2*M_PI)
   newY = newY * 10430.06;
   newZ = newZ * 10430.06;
-
-  // scale to range -127 to 127
-//  newX = newX * 40.74367; //  = 256 / (2*M_PI)
-//  newY = newY * 40.74367;
-//  newZ = newZ * 40.74367;
   
   //clamp at 90 degrees left and right (what for?)
 //  newX = constrain(newX, -16383.0, 16383.0);
@@ -311,13 +297,7 @@ void loop()
   short joyY = constrain((long)newY, -32767, 32767);
   short joyZ = constrain((long)newZ, -32767, 32767);
 
-//  byte joyX = constrain((long)newX, -127, 127);
-//  byte joyY = constrain((long)newY, -127, 127);
-//  byte joyZ = constrain((long)newZ, -127, 127);
-  
-#endif
-
-#ifdef READABLE
+#ifdef DEBUG
 
   if(i % 11 == 10) {
     i = 0;
@@ -327,16 +307,16 @@ void loop()
     return;
   }
 
-#ifndef VJOY
+#ifndef TEAPOT
   
   ypr.printDeg();
 
-//  Serial.print(mx); Serial.print("\t");
-//  Serial.print(my); Serial.print("\t");
-//  Serial.print(mz); Serial.print("\t");
+  Serial.print(mx); Serial.print("\t");
+  Serial.print(my); Serial.print("\t");
+  Serial.print(mz); Serial.print("\t");
 
-//  Serial.print("heading:\t");
-//  Serial.println(heading * 180/M_PI);
+  Serial.print("heading:\t");
+  Serial.println(heading * 180/M_PI);
   
 #else
   
@@ -351,20 +331,10 @@ void loop()
 
   time = micros();
 
+  delay(10);
 #else
 
-#ifdef VJOY
-
-//  teapotPacket[2] = ((uint8_t)(joyX >> 8));
-//  teapotPacket[3] = ((uint8_t)(joyX & 0xFF));
-//  teapotPacket[4] = ((uint8_t)(joyY >> 8));
-//  teapotPacket[5] = ((uint8_t)(joyY & 0xFF));
-//  teapotPacket[6] = ((uint8_t)(joyZ >> 8));
-//  teapotPacket[7] = ((uint8_t)(joyZ & 0xFF));
-
-  
-
-#else
+#ifdef TEAPOT
 
   w = q.w * 16384.0;
   x = q.x * 16384.0;
@@ -379,51 +349,19 @@ void loop()
   teapotPacket[7] = ((uint8_t)(y & 0xFF));
   teapotPacket[8] = ((uint8_t)(z >> 8));
   teapotPacket[9] = ((uint8_t)(z & 0xFF));
-  
-#endif /*VJOY*/
 
-#ifndef DEBUG
-
-#ifdef VJOY
-
-  //v-joy packet is smaller
-//  Serial.write(teapotPacket, 10);
-  controller.setXAxisRotation(joyX);
-  controller.setYAxisRotation(joyY);
-  controller.setZAxisRotation(joyZ);
-  controller.sendReport();
-  
-#else
-
-//  Serial.write(teapotPacket, 14);
-
-#endif /* VJOY */
-
-#else
-
-/*  Serial.print(q.w * 16384.0, 8); 
-  Serial.print("\t");
-  Serial.print(w, 8); 
-  Serial.print("\t");
-  Serial.print(teapotPacket[2]); 
-  Serial.print("\t");
-  Serial.print(teapotPacket[3]); 
-  Serial.print("\n");
-  Serial.print((((uint16_t)teapotPacket[2])<<8) + teapotPacket[3]); 
-  Serial.print("\n");
-  Serial.print("------------------------------------------------------------------\n");*/
-  delay(10);
-
-#endif //DEBUG
-
-#ifndef VJOY
+  Serial.write(teapotPacket, 14);
 
   teapotPacket[11]++;
 
 #endif
 
-#endif //READABLE
-  delay(10);
+#endif //DEBUG
+
+  controller.setXAxisRotation(joyX);
+  controller.setYAxisRotation(joyY);
+  controller.setZAxisRotation(joyZ);
+  controller.sendReport();
 }
 
 void getCurrentValuesFromMPU(float *a_x, float *a_y, float *a_z, float *g_x, float *g_y, float *g_z){
