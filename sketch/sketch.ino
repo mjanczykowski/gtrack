@@ -1,6 +1,7 @@
 #include "i2c.h"
 #include "quaternion.h"
 #include "dcm.h"
+#include "gamecontroller.h"
 #include <math.h>
 #include <inttypes.h>
 
@@ -64,6 +65,9 @@
 //Device - accel/gyro MPU-6050 (GY-521) and magnetometer HMC5833L
 I2CDevice *dev, *mgn;
 
+//HID Game Controller
+GameController controller;
+
 #ifdef VJOY
 
 //packet with 3x short for virtual joystick
@@ -125,6 +129,8 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println();
+
+  controller.start();
 
   dev = new I2CDevice(MPU6050_I2C_ADDRESS, I2C_BITRATE);
   dev -> writeRegister(MPU6050_IDLE_REGISTER, 0);
@@ -290,6 +296,11 @@ void loop()
   newX = newX * 10430.06; //  = 64k / (2*M_PI)
   newY = newY * 10430.06;
   newZ = newZ * 10430.06;
+
+  // scale to range -127 to 127
+//  newX = newX * 40.74367; //  = 256 / (2*M_PI)
+//  newY = newY * 40.74367;
+//  newZ = newZ * 40.74367;
   
   //clamp at 90 degrees left and right (what for?)
 //  newX = constrain(newX, -16383.0, 16383.0);
@@ -299,6 +310,10 @@ void loop()
   short joyX = constrain((long)newX, -32767, 32767);
   short joyY = constrain((long)newY, -32767, 32767);
   short joyZ = constrain((long)newZ, -32767, 32767);
+
+//  byte joyX = constrain((long)newX, -127, 127);
+//  byte joyY = constrain((long)newY, -127, 127);
+//  byte joyZ = constrain((long)newZ, -127, 127);
   
 #endif
 
@@ -316,12 +331,12 @@ void loop()
   
   ypr.printDeg();
 
-  Serial.print(mx); Serial.print("\t");
-  Serial.print(my); Serial.print("\t");
-  Serial.print(mz); Serial.print("\t");
+//  Serial.print(mx); Serial.print("\t");
+//  Serial.print(my); Serial.print("\t");
+//  Serial.print(mz); Serial.print("\t");
 
-  Serial.print("heading:\t");
-  Serial.println(heading * 180/M_PI);
+//  Serial.print("heading:\t");
+//  Serial.println(heading * 180/M_PI);
   
 #else
   
@@ -340,12 +355,14 @@ void loop()
 
 #ifdef VJOY
 
-  teapotPacket[2] = ((uint8_t)(joyX >> 8));
-  teapotPacket[3] = ((uint8_t)(joyX & 0xFF));
-  teapotPacket[4] = ((uint8_t)(joyY >> 8));
-  teapotPacket[5] = ((uint8_t)(joyY & 0xFF));
-  teapotPacket[6] = ((uint8_t)(joyZ >> 8));
-  teapotPacket[7] = ((uint8_t)(joyZ & 0xFF));
+//  teapotPacket[2] = ((uint8_t)(joyX >> 8));
+//  teapotPacket[3] = ((uint8_t)(joyX & 0xFF));
+//  teapotPacket[4] = ((uint8_t)(joyY >> 8));
+//  teapotPacket[5] = ((uint8_t)(joyY & 0xFF));
+//  teapotPacket[6] = ((uint8_t)(joyZ >> 8));
+//  teapotPacket[7] = ((uint8_t)(joyZ & 0xFF));
+
+  
 
 #else
 
@@ -370,17 +387,21 @@ void loop()
 #ifdef VJOY
 
   //v-joy packet is smaller
-  Serial.write(teapotPacket, 10);
+//  Serial.write(teapotPacket, 10);
+  controller.setXAxisRotation(joyX);
+  controller.setYAxisRotation(joyY);
+  controller.setZAxisRotation(joyZ);
+  controller.sendReport();
   
 #else
 
-  Serial.write(teapotPacket, 14);
+//  Serial.write(teapotPacket, 14);
 
 #endif /* VJOY */
 
 #else
 
-  Serial.print(q.w * 16384.0, 8); 
+/*  Serial.print(q.w * 16384.0, 8); 
   Serial.print("\t");
   Serial.print(w, 8); 
   Serial.print("\t");
@@ -390,7 +411,7 @@ void loop()
   Serial.print("\n");
   Serial.print((((uint16_t)teapotPacket[2])<<8) + teapotPacket[3]); 
   Serial.print("\n");
-  Serial.print("------------------------------------------------------------------\n");
+  Serial.print("------------------------------------------------------------------\n");*/
   delay(10);
 
 #endif //DEBUG
