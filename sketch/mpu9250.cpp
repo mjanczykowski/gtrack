@@ -54,24 +54,10 @@ void MPU9250Device::getAnglesAndAccelerometer(float *angles, float *acceleromete
   short gyro[3], accel[3], sensors;
   unsigned char more;
   dmp_read_fifo(gyro, accel, quat, &sensor_data, &sensors, &more);
-//  Serial.print(quat[0]);
-//  Serial.print("\t");
-//  Serial.print(quat[1]);
-//  Serial.print("\t");
-//  Serial.print(quat[2]);
-//  Serial.print("\t");
-//  Serial.print(quat[3]);
-//  Serial.print("\n");
   Quaternion q((float)quat[0] / QUAT_SCALEFACTOR, (float)quat[1] / QUAT_SCALEFACTOR,
                (float)quat[2] / QUAT_SCALEFACTOR, (float)quat[3] / QUAT_SCALEFACTOR);
   q.normalize();
   q.getAngles(&angles[0], &angles[1], &angles[2]);
-//  Serial.print(angles[0]);
-//  Serial.print("\t");
-//  Serial.print(angles[1]);
-//  Serial.print("\t");
-//  Serial.print(angles[2]);
-//  Serial.print("\n");
   accelerometer[0] = (float) accel[0];
   accelerometer[1] = (float) accel[1];
   accelerometer[2] = (float) accel[2];
