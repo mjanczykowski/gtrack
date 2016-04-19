@@ -1,4 +1,9 @@
-#include "quaternion.h"
+/* GTRACK v. 0.1
+ * 
+ * (C) 2016 Michał Ciołczyk, Michał Janczykowski
+ */
+ 
+ #include "quaternion.h"
 
 Quaternion::Quaternion()
 {
@@ -76,9 +81,9 @@ void Quaternion::getAngles(float *phi, float *theta, float *psi)
   (*phi) = asin(2*y*z + 2*w*x);
   (*psi) = atan2(-2*x*y + 2*w*z, y*y - z*z + w*w - x*x);
   
-  (*phi) *= (180.0 / M_PI);
-  (*theta) *= (180.0 / M_PI);
-  (*psi) *= (180.0 / M_PI);
+  (*phi) *= RAD_TO_DEG;
+  (*theta) *= RAD_TO_DEG;
+  (*psi) *= RAD_TO_DEG;
 }
 
 void Quaternion::getGravity(float *gx, float *gy, float *gz)
@@ -99,9 +104,9 @@ void Quaternion::getPRYAngles(float *phi, float *theta, float *psi)
   // roll: (tilt left/right, about X axis)
   *phi = atan(gy / sqrt(gx*gx + gz*gz));
    
-  (*phi) *= (180.0 / M_PI);
-  (*theta) *= (180.0 / M_PI);
-  (*psi) *= (180.0 / M_PI);
+  (*phi) *= RAD_TO_DEG;
+  (*theta) *= RAD_TO_DEG;
+  (*psi) *= RAD_TO_DEG;
 }
 
 Quaternion Quaternion::operator*(Quaternion q)
@@ -157,3 +162,4 @@ void Quaternion::printQuaternion(char *text, int enter)
     Serial.print("\t");
   }
 }
+

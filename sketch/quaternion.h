@@ -1,3 +1,8 @@
+/* GTRACK v. 0.1
+ * 
+ * (C) 2016 Michał Ciołczyk, Michał Janczykowski
+ */
+ 
 #ifndef QUATERNION_H
 #define QUATERNION_H
 
@@ -30,3 +35,4 @@ class Quaternion
 };
 
 #endif /* QUATERNION_H */  
+

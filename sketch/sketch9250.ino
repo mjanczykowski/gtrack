@@ -5,7 +5,7 @@
 
 #include "mpu9250.h"
 #include "quaternion.h"
-#include "dcm.h"
+#include "gamecontroller.h"
 #include <math.h>
 #include <inttypes.h>
 #include <Wire.h>
@@ -25,9 +25,6 @@
 // GLOBAL VARIABLES
 //=========================================================================================================================================================
 
-//Packet to send to PC
-uint8_t teapotPacket[10] = {'$', 0x02, 0, 0, 0, 0, 0, 0, '\r', '\n'};
-
 //Time related values
 unsigned long currentTime, newTime, dt;
 
@@ -45,10 +42,7 @@ float comp_v_x = 0.0, comp_v_y = 0.0;
 Quaternion q;
 uint16_t w, x, y, z;
 
-//DCM
-DCM R, R_aux;
-
-Vector rollPitchCorrectionPlane, yawCorrectionPlane, totalCorrection, angVel_Pcorr, angVel_Icorr(0., 0., 0.), angVel_corr, rotation, angVel;
+//Vector rollPitchCorrectionPlane, yawCorrectionPlane, totalCorrection, angVel_Pcorr, angVel_Icorr(0., 0., 0.), angVel_corr, rotation, angVel;
 
 //Values from MPU
 float accel[3];
@@ -60,10 +54,13 @@ float initialHeading, heading;
 float drift_x = 0.0, drift_y = 0.0, drift_z = 0.0;
 
 //FIFO waiting
-short newValues = 0;
+volatile short newValues = 0;
 
 //MPU 9250
 MPU9250Device mpuDev;
+
+//USB HID Game Controller
+GameController controller;
 
 //=========================================================================================================================================================
 // MPU RELATED CODE
@@ -97,6 +94,7 @@ void setup() {
   TWBR = TWBR_I2C_CLOCKRATE;
   mpuDev.init();
   enable_mpu();
+  controller.start();
 }
 
 //=========================================================================================================================================================
@@ -113,55 +111,55 @@ void loop() {
   mpuDev.getAnglesAndAccelerometer(angles, accel);
   mpuDev.getMagnetometer(mag);
 
-  rotation = Vector(angles[0] * DEG_TO_RAD, angles[1] * DEG_TO_RAD, angles[2] * DEG_TO_RAD);
-
-  R_aux = R.rotateByVector(rotation);
-  R_aux.normalize();
+//  R_aux.normalize();
   
-  Vector ypr = R.getYawPitchRoll();
+//  Vector ypr = R.getYawPitchRoll();
   
   //correction
   //magnetometer axes are rotated 90 CCW around Z axis
-  float cosx = cos(-ypr.y), sinx = sin(-ypr.y), cosy = cos(ypr.x), siny = sin(ypr.x);
-  
-  float mxg = mag[0]*cosy + mag[1]*siny*sinx + mag[2]*siny*cosx;
-  float myg = mag[1]*cosx - mag[2]*sinx;
+//  float cosx = cos(-ypr.y), sinx = sin(-ypr.y), cosy = cos(ypr.x), siny = sin(ypr.x);
+//
+//  float mxg = mag[0]*cosy + mag[1]*siny*sinx + mag[2]*siny*cosx;
+//  float myg = mag[1]*cosx - mag[2]*sinx;
+//
+//  heading = atan2(myg, mxg);
+//  if(heading < 0)
+//    heading += 2 * M_PI;
+//    
+//  heading -= initialHeading;
+//  heading *= -1.;
+//    
+//  float headingX_ground = cos(heading);
+//  float headingY_ground = sin(heading);
+//  float yawCorrectionGround = - R.R[0][0]*headingY_ground + R.R[1][0]*headingX_ground;
+//  
+//  yawCorrectionPlane = R.getZRow() * yawCorrectionGround;
+//  
+//  //accelerometer
+//  Vector acc(accel[0], accel[1], accel[2]);
+//  acc.normalize();
+//  
+//  rollPitchCorrectionPlane = R_aux.getZRow().cross(acc);
+//  
+//  totalCorrection = rollPitchCorrectionPlane * W_RP + yawCorrectionPlane * W_Y;
+//  angVel_Pcorr = totalCorrection * K_P;
+//  angVel_Icorr = angVel_Icorr + totalCorrection * (K_I * (dt / 1000000.0));
+//  angVel_corr = angVel_Pcorr + angVel_Icorr;
+//  
+//  angVel = angVel - angVel_corr;
+//  rotation = angVel * (dt / 1000000.0);
+//  
+//  R = R.rotateByVector(rotation);
+//  R.normalize();
+//  
+//  ypr = R.getYawPitchRoll();
+//  
+//  float yaw, pitch, roll;
+//
+//  q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
 
-  heading = atan2(myg, mxg);
-  if(heading < 0)
-    heading += 2 * M_PI;
-    
-  heading -= initialHeading;
-  heading *= -1.;
-    
-  float headingX_ground = cos(heading);
-  float headingY_ground = sin(heading);
-  float yawCorrectionGround = - R.R[0][0]*headingY_ground + R.R[1][0]*headingX_ground;
-  
-  yawCorrectionPlane = R.getZRow() * yawCorrectionGround;
-  
-  //accelerometer
-  Vector acc(accel[0], accel[1], accel[2]);
-  acc.normalize();
-  
-  rollPitchCorrectionPlane = R_aux.getZRow().cross(acc);
-  
-  totalCorrection = rollPitchCorrectionPlane * W_RP + yawCorrectionPlane * W_Y;
-  angVel_Pcorr = totalCorrection * K_P;
-  angVel_Icorr = angVel_Icorr + totalCorrection * (K_I * (dt / 1000000.0));
-  angVel_corr = angVel_Pcorr + angVel_Icorr;
-  
-  angVel = angVel - angVel_corr;
-  rotation = angVel * (dt / 1000000.0);
-  
-  R = R.rotateByVector(rotation);
-  R.normalize();
-  
-  ypr = R.getYawPitchRoll();
-  
-  float yaw, pitch, roll;
-
-  q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
+  //TEMP
+  q.setByAngles(angles[0], angles[1], angles[2]);
 
   //prepare data for v-joy
   float newX =  atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
@@ -177,13 +175,9 @@ void loop() {
   short joyY = constrain((long)newY, -32767, 32767);
   short joyZ = constrain((long)newZ, -32767, 32767);
 
-  teapotPacket[2] = ((uint8_t)(joyX >> 8));
-  teapotPacket[3] = ((uint8_t)(joyX & 0xFF));
-  teapotPacket[4] = ((uint8_t)(joyY >> 8));
-  teapotPacket[5] = ((uint8_t)(joyY & 0xFF));
-  teapotPacket[6] = ((uint8_t)(joyZ >> 8));
-  teapotPacket[7] = ((uint8_t)(joyZ & 0xFF));
-
-  Serial.write(teapotPacket, 10);
+  controller.setXAxisRotation(joyX);
+  controller.setYAxisRotation(joyY);
+  controller.setZAxisRotation(joyZ);
+  controller.sendReport();
 }
 

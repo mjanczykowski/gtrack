@@ -1,3 +1,8 @@
+/* GTRACK v. 0.1
+ * 
+ * (C) 2016 Michał Ciołczyk, Michał Janczykowski
+ */
+ 
 #ifndef DCM_H
 #define DCM_H
 
@@ -48,3 +53,4 @@ class DCM
 };
 
 #endif /* DCM_H */
+
