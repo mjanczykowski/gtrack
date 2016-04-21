@@ -24,6 +24,9 @@ inline short median(short *arr, int size) {
       arr[j] = arr[j - 1];
       arr[j - 1] = tmp;
     }
+  if (size % 2 == 0) {
+    return (arr[size / 2 - 1] + arr[size / 2]) / 2;
+  }
   return arr[size / 2];
 }
 
