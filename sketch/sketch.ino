@@ -6,6 +6,7 @@
 #include "mpu9250.h"
 #include "quaternion.h"
 #include "gamecontroller.h"
+#include "median.h"
 #include <math.h>
 #include <inttypes.h>
 #include <Wire.h>
@@ -30,13 +31,13 @@ unsigned long currentTime, newTime, dt;
 
 //Angles
 //float gyroAngleX = 0.0, gyroAngleY = 0.0, gyroAngleZ = 0.0;
-float compAngleX = 0.0, compAngleY = 0.0;
-float accAngleX = 0.0, accAngleY = 0.0;
-
+//float compAngleX = 0.0, compAngleY = 0.0;
+//float accAngleX = 0.0, accAngleY = 0.0;
+//
 //angular velocities
-float gyro_v_x = 0.0, gyro_v_y = 0.0, gyro_v_z = 0.0;
-float acc_v_x = 0.0, acc_v_y = 0.0, acc_v_z = 0.0;
-float comp_v_x = 0.0, comp_v_y = 0.0;
+//float gyro_v_x = 0.0, gyro_v_y = 0.0, gyro_v_z = 0.0;
+//float acc_v_x = 0.0, acc_v_y = 0.0, acc_v_z = 0.0;
+//float comp_v_x = 0.0, comp_v_y = 0.0;
 
 //Quaternion to send to computer and converted values
 Quaternion q;
@@ -54,13 +55,16 @@ float initialHeading, heading;
 float drift_x = 0.0, drift_y = 0.0, drift_z = 0.0;
 
 //FIFO waiting
-volatile short newValues = 0;
+volatile bool newValues = false;
 
 //MPU 9250
 MPU9250Device mpuDev;
 
 //USB HID Game Controller
 GameController controller;
+
+//Median filters
+MedianFilter yawFilter, pitchFilter, rollFilter;
 
 //=========================================================================================================================================================
 // MPU RELATED CODE
@@ -78,7 +82,7 @@ void disable_mpu() {
 }
 
 ISR(INT6_vect) {
-  newValues = 1;
+  newValues = true;
 }
 
 //=========================================================================================================================================================
@@ -86,10 +90,10 @@ ISR(INT6_vect) {
 //=========================================================================================================================================================
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("GTRACK v. 1.0");
-  Serial.println("(C) 2016 Michal Ciolczyk, Michal Janczykowski");
-  Serial.println();
+//  Serial.begin(115200);
+//  Serial.println("GTRACK v. 1.0");
+//  Serial.println("(C) 2016 Michal Ciolczyk, Michal Janczykowski");
+//  Serial.println();
   Wire.begin();
   TWBR = TWBR_I2C_CLOCKRATE;
   mpuDev.init();
@@ -103,12 +107,14 @@ void setup() {
 
 void loop() {
   while(!newValues) ;
-  newValues = 0;
   newTime = micros();
   dt = newTime - currentTime;
   currentTime = newTime;
   
-  mpuDev.getAnglesAndAccelerometer(angles, accel);
+  if(!mpuDev.getQuaternion(&q, &newValues)) {
+    return;
+  }
+  
   mpuDev.getMagnetometer(mag);
 
 //  R_aux.normalize();
@@ -159,7 +165,7 @@ void loop() {
 //  q.setByAngles(ypr.x * RAD_TO_DEG, ypr.y * RAD_TO_DEG, ypr.z * RAD_TO_DEG);
 
   //TEMP
-  q.setByAngles(angles[0], angles[1], angles[2]);
+  //q.setByAngles(angles[0], angles[1], angles[2]);
 
   //prepare data for v-joy
   float newX =  atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
@@ -175,9 +181,18 @@ void loop() {
   short joyY = constrain((long)newY, -32767, 32767);
   short joyZ = constrain((long)newZ, -32767, 32767);
 
+//  yawFilter.addMeasurement(joyX);
+//  pitchFilter.addMeasurement(joyY);
+//  rollFilter.addMeasurement(joyZ);
+//  yawFilter.getFilteredMeasurement(&joyX);
+//  pitchFilter.getFilteredMeasurement(&joyY);
+//  rollFilter.getFilteredMeasurement(&joyZ);
+
   controller.setXAxisRotation(joyX);
   controller.setYAxisRotation(joyY);
   controller.setZAxisRotation(joyZ);
   controller.sendReport();
+
+  //delay(5);
 }
 

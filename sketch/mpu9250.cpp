@@ -11,7 +11,6 @@ extern "C" {
 }
 
 #include "mpu9250.h"
-#include "quaternion.h"
 
 void MPU9250Device::init() {
   mpu_init(&this->revision);
@@ -48,19 +47,21 @@ void MPU9250Device::disable() {
   mpu_set_dmp_state(0);
 }
 
-void MPU9250Device::getAnglesAndAccelerometer(float *angles, float *accelerometer) {
+bool MPU9250Device::getQuaternion(Quaternion *quaternion, volatile bool *hasMoreMeasurements) {
+  if (!checkFIFO()) {
+    *hasMoreMeasurements = false;
+    return false;
+  }
   long unsigned int sensor_data;
   long quat[4];
   short gyro[3], accel[3], sensors;
   unsigned char more;
   dmp_read_fifo(gyro, accel, quat, &sensor_data, &sensors, &more);
-  Quaternion q((float)quat[0] / QUAT_SCALEFACTOR, (float)quat[1] / QUAT_SCALEFACTOR,
-               (float)quat[2] / QUAT_SCALEFACTOR, (float)quat[3] / QUAT_SCALEFACTOR);
-  q.normalize();
-  q.getAngles(&angles[0], &angles[1], &angles[2]);
-  accelerometer[0] = (float) accel[0];
-  accelerometer[1] = (float) accel[1];
-  accelerometer[2] = (float) accel[2];
+  quaternion -> setValues((float)quat[0] / QUAT_SCALEFACTOR, (float)quat[1] / QUAT_SCALEFACTOR,
+                          (float)quat[2] / QUAT_SCALEFACTOR, (float)quat[3] / QUAT_SCALEFACTOR);
+  quaternion -> normalize();
+  *hasMoreMeasurements = (more != 0);
+  return true;
 }
 
 void MPU9250Device::getMagnetometer(float *values) {
@@ -74,8 +75,27 @@ void MPU9250Device::getMagnetometer(float *values) {
   }
 }
 
-void MPU9250Device::calibrate() {
-  
+void MPU9250Device::resetFIFO() {     
+  I2Cdev::writeBit(MPU_ADDRESS, MPU_USERCTRL_REG, MPU_USERCTRL_FIFO_RESET_BIT, true);
 }
 
+uint8_t MPU9250Device::getMPUStatus() {
+  I2Cdev::readByte(MPU_ADDRESS, MPU_INT_STATUS_REG, buffer);
+  return buffer[0];
+}
+
+uint16_t MPU9250Device::getFIFOCount() {
+  I2Cdev::readBytes(MPU_ADDRESS, MPU_FIFO_COUNTH_REG, MPU_FIFO_COUNT_LEN, buffer);
+  return (((uint16_t) buffer[0]) << 8) | buffer[1];
+}
+
+bool MPU9250Device::checkFIFO() {
+  uint8_t mpuIntStatus = getMPUStatus();
+  uint16_t fifoCount = getFIFOCount();
+  if ((mpuIntStatus & MPU_OVERFLOW_VALUE) || fifoCount == MAX_FIFO_COUNT) {
+    resetFIFO();
+    return false;
+  }
+  return true;
+}
 

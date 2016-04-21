@@ -163,3 +163,10 @@ void Quaternion::printQuaternion(char *text, int enter)
   }
 }
 
+void Quaternion::setValues(float w, float x, float y, float z) {
+  this -> w = w;
+  this -> x = x;
+  this -> y = y;
+  this -> z = z;
+}
+

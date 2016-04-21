@@ -32,6 +32,7 @@ class Quaternion
     void getGravity(float *gx, float *gy, float *gz);
     void normalize();
     void printQuaternion(char *text, int enter);
+    void setValues(float w, float x, float y, float z);
 };
 
 #endif /* QUATERNION_H */  
