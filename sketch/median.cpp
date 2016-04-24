@@ -30,13 +30,28 @@ inline short median(short *arr, int size) {
   return arr[size / 2];
 }
 
-void MedianFilter::addMeasurement(short measurement) {
-  this -> measurements[this -> current_measurement] = measurement;
-  this -> current_measurement = (this -> current_measurement + 1) % MEDIAN_WINDOW_SIZE;
-  this -> measurements_present = min(MEDIAN_WINDOW_SIZE, this -> measurements_present + 1);
+MedianFilter::MedianFilter(short medianWindowSize)
+{
+  this -> medianWindowSize = medianWindowSize;
+  this -> measurements = new short[medianWindowSize];
+  this -> measurements_copy = new short[medianWindowSize];
 }
 
-void MedianFilter::getFilteredMeasurement(short *measurement) {
+MedianFilter::~MedianFilter()
+{
+  delete this -> measurements;
+  delete this -> measurements_copy;
+}
+
+void MedianFilter::addMeasurement(short measurement)
+{
+  this -> measurements[this -> current_measurement] = measurement;
+  this -> current_measurement = (this -> current_measurement + 1) % this -> medianWindowSize;
+  this -> measurements_present = min(this -> medianWindowSize, this -> measurements_present + 1);
+}
+
+void MedianFilter::getFilteredMeasurement(short *measurement)
+{
   copy_array(this -> measurements, this -> measurements_copy, this -> measurements_present);
   *measurement = median(this -> measurements_copy, this -> measurements_present);
 }

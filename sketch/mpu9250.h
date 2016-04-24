@@ -11,7 +11,7 @@
 #define _PI                         32768.0
 #define _TWOPI                      65536.0
 #define DEFAULT_MPU_HZ              200
-#define GYRO_ORIENTATION            B10000101
+#define GYRO_ORIENTATION            B10001000
 #define MAG_SCALEFACTOR             4.f
 #define QUAT_SCALEFACTOR            1073741824.0f
 #define MPU_ADDRESS                 0x68

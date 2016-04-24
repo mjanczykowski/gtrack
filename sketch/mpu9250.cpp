@@ -31,7 +31,7 @@ void MPU9250Device::init() {
   //dmp_register_tap_cb(&tap_cb);
 
   unsigned short dmp_features = DMP_FEATURE_6X_LP_QUAT | DMP_FEATURE_SEND_RAW_ACCEL |
-                                DMP_FEATURE_SEND_RAW_GYRO ;//| DMP_FEATURE_GYRO_CAL;
+                                DMP_FEATURE_SEND_CAL_GYRO | DMP_FEATURE_GYRO_CAL;
 
   //dmp_features = dmp_features |  DMP_FEATURE_TAP ;
 
@@ -75,7 +75,7 @@ void MPU9250Device::getMagnetometer(float *values) {
   }
 }
 
-void MPU9250Device::resetFIFO() {     
+void MPU9250Device::resetFIFO() {
   I2Cdev::writeBit(MPU_ADDRESS, MPU_USERCTRL_REG, MPU_USERCTRL_FIFO_RESET_BIT, true);
 }
 
@@ -96,6 +96,12 @@ bool MPU9250Device::checkFIFO() {
     resetFIFO();
     return false;
   }
-  return true;
+  if(fifoCount == 0) {
+    return false;
+  }
+  if (mpuIntStatus & 0x02) {
+    return true;
+  }
+  return false;
 }
 

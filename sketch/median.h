@@ -6,16 +6,19 @@
 #ifndef _MEDIAN
 #define _MEDIAN
 
-#define MEDIAN_WINDOW_SIZE 5
-
 class MedianFilter {
   public:
-  void addMeasurement(short measurement);
-  void getFilteredMeasurement(short *measurement);
+    MedianFilter(short medianWindowSize);
+    ~MedianFilter();
+  
+    void addMeasurement(short measurement);
+    void getFilteredMeasurement(short *measurement);
   
   private:
-  int measurements_present = 0, current_measurement = 0;
-  short measurements[MEDIAN_WINDOW_SIZE] = {0}, measurements_copy[MEDIAN_WINDOW_SIZE] = {0};
+    int measurements_present = 0, current_measurement = 0;
+    short medianWindowSize;
+    short *measurements;
+    short *measurements_copy;
 };
 
 #endif
