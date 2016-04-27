@@ -99,9 +99,6 @@ bool MPU9250Device::checkFIFO() {
   if(fifoCount == 0) {
     return false;
   }
-  if (mpuIntStatus & 0x02) {
-    return true;
-  }
-  return false;
+  return true;
 }
 
