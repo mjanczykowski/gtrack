@@ -92,7 +92,7 @@ uint16_t MPU9250Device::getFIFOCount() {
 bool MPU9250Device::checkFIFO() {
   uint8_t mpuIntStatus = getMPUStatus();
   uint16_t fifoCount = getFIFOCount();
-  if ((mpuIntStatus & MPU_OVERFLOW_VALUE) || fifoCount == MAX_FIFO_COUNT) {
+  if ((mpuIntStatus & MPU_OVERFLOW_VALUE) || fifoCount >= MAX_FIFO_COUNT) {
     resetFIFO();
     return false;
   }

@@ -79,11 +79,6 @@ void disable_mpu() {
 //=========================================================================================================================================================
 
 void setup() {
-//  Serial.begin(115200);
-//  while(!Serial);
-//  Serial.println("GTRACK v. 1.0");
-//  Serial.println("(C) 2016 Michal Ciolczyk, Michal Janczykowski");
-//  Serial.println();
   Wire.begin();
   TWBR = TWBR_I2C_CLOCKRATE;
   mpuDev.init();
@@ -144,19 +139,7 @@ void loop() {
 
   heading = (float)headingFiltered * 0.01 *DEG_TO_RAD;
   
-//  Serial.print(heading);
-//  Serial.print("\t");
-//  Serial.print(yaw);
-//  Serial.print("\t");
-
   yaw += drift_correction;
-
-//  Serial.print(pitch * RAD_TO_DEG);
-//  Serial.print("\t");
-//  Serial.print(roll * RAD_TO_DEG);
-//  Serial.print("\t");
-//  Serial.print(yaw * RAD_TO_DEG);
-//  Serial.print("\n");
 
   if(heading > yaw)
   {
@@ -183,11 +166,6 @@ void loop() {
 
   drift_correction += drift_correction_counter * 0.00001;
   
-//  Serial.print(drift_correction_counter);
-//  Serial.print("\t");
-//  Serial.print(drift_correction);
-//  Serial.print("\n");
-
   float newX, newY, newZ;
 
   // scale to range -32767 to 32767
@@ -199,14 +177,6 @@ void loop() {
   short joyY = constrain((long)newY, -32767, 32767);
   short joyZ = constrain((long)newZ, -32767, 32767);
 
-//  Serial.print("------------------------------\n");
-//  Serial.print(joyX * RAD_TO_DEG);
-//  Serial.print("\t");
-//  Serial.print(joyY * RAD_TO_DEG);
-//  Serial.print("\t");
-//  Serial.print(joyZ * RAD_TO_DEG);
-//  Serial.print("\n");
-
 //  yawFilter.addMeasurement(joyX);
 //  pitchFilter.addMeasurement(joyY);
 //  rollFilter.addMeasurement(joyZ);
@@ -214,20 +184,13 @@ void loop() {
 //  pitchFilter.getFilteredMeasurement(&joyY);
 //  rollFilter.getFilteredMeasurement(&joyZ);
 
-//  Serial.print(joyX * RAD_TO_DEG);
-//  Serial.print("\t");
-//  Serial.print(joyY * RAD_TO_DEG);
-//  Serial.print("\t");
-//  Serial.print(joyZ * RAD_TO_DEG);
-//  Serial.print("\n");
-
   controller.setXAxisRotation(joyX);
   controller.setYAxisRotation(joyY);
   controller.setZAxisRotation(joyZ);
   controller.sendReport();
 }
 
-void rescale_mag(float *mag) {
+inline void rescale_mag(float *mag) {
   mag[0] += MAG_OFFSET_X;
   mag[1] = (mag[1] + MAG_OFFSET_Y) / MAG_SPREAD_Y * MAG_SPREAD_X;
   mag[2] = (mag[2] + MAG_OFFSET_Z) / MAG_SPREAD_Z * MAG_SPREAD_Y;
