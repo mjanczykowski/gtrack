@@ -1,3 +1,8 @@
+/* GTRACK v. 0.1
+ * 
+ * (C) 2016 Michał Ciołczyk, Michał Janczykowski
+ */
+ 
 #include "dcm.h"
 
 Vector::Vector(float x, float y, float z)
@@ -184,3 +189,4 @@ Vector DCM::getYawPitchRoll()
     atan2(R[1][0], R[0][0])
   );
 }
+

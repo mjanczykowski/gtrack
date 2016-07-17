@@ -1,4 +1,9 @@
-#include "quaternion.h"
+/* GTRACK v. 0.1
+ * 
+ * (C) 2016 Michał Ciołczyk, Michał Janczykowski
+ */
+ 
+ #include "quaternion.h"
 
 Quaternion::Quaternion()
 {
@@ -53,14 +58,14 @@ Quaternion Quaternion::fromRotationVector(float vx, float vy, float vz)
   
   return qx * qy * qz;
 }
-   
+
 void Quaternion::setByAngles(float pitch, float roll, float yaw)
 {
   //translation to rad/2
   float a = roll * M_PI / 360.0;  // Phi / 2.0
   float b = pitch * M_PI / 360.0; // Theta / 2.0
   float c = yaw * M_PI / 360.0;   // Psi / 2.0
-  
+
   float c1 = cos(a), c2 = cos(b), c3 = cos(c);
   float s1 = sin(a), s2 = sin(b), s3 = sin(c);
 
@@ -76,9 +81,9 @@ void Quaternion::getAngles(float *phi, float *theta, float *psi)
   (*phi) = asin(2*y*z + 2*w*x);
   (*psi) = atan2(-2*x*y + 2*w*z, y*y - z*z + w*w - x*x);
   
-  (*phi) *= (180.0 / M_PI);
-  (*theta) *= (180.0 / M_PI);
-  (*psi) *= (180.0 / M_PI);
+  (*phi) *= RAD_TO_DEG;
+  (*theta) *= RAD_TO_DEG;
+  (*psi) *= RAD_TO_DEG;
 }
 
 void Quaternion::getGravity(float *gx, float *gy, float *gz)
@@ -88,6 +93,17 @@ void Quaternion::getGravity(float *gx, float *gy, float *gz)
   *gz = w*w - x*x - y*y + z*z;
 }
     
+void Quaternion::getYawPitchRoll(float *yaw, float *pitch, float *roll)
+{
+//  *yaw = -atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z);
+//  *pitch = atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z);
+//  *roll = asin(-2.0 * (x * z - w * y));
+  *pitch = atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z);
+  *roll = -asin(2.0 * (x * z - w * y));
+  *yaw = atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z);
+}
+
+
 void Quaternion::getPRYAngles(float *phi, float *theta, float *psi)
 {
   float gx, gy, gz;
@@ -99,9 +115,9 @@ void Quaternion::getPRYAngles(float *phi, float *theta, float *psi)
   // roll: (tilt left/right, about X axis)
   *phi = atan(gy / sqrt(gx*gx + gz*gz));
    
-  (*phi) *= (180.0 / M_PI);
-  (*theta) *= (180.0 / M_PI);
-  (*psi) *= (180.0 / M_PI);
+  (*phi) *= RAD_TO_DEG;
+  (*theta) *= RAD_TO_DEG;
+  (*psi) *= RAD_TO_DEG;
 }
 
 Quaternion Quaternion::operator*(Quaternion q)
@@ -113,18 +129,51 @@ Quaternion Quaternion::operator*(Quaternion q)
     w*q.z + x*q.y - y*q.x + z*q.w); // new z (- + +)?
 }
 
-Quaternion Quaternion::average(Quaternion q, float q_weight, Quaternion p, float p_weight)
+/* spherical interpolation between q and p by amount of t of range (0, 1)
+ * none of input quaternions can be zero-length */
+Quaternion Quaternion::slerp(Quaternion q, Quaternion p, float t)
 {
-  //naive implementation - need to be implemented properly!!!
+  float cosHalfAngle = q.w * p.w + q.x * p.x + q.y * p.y + q.z * p.z;
+
+  if (cosHalfAngle >= 1.0f || cosHalfAngle <= -1.0f)
+  {
+    // angle = 0.0f, so just return q.
+    return q;
+  }
+  else if (cosHalfAngle < 0.0f)
+  {
+    p.w = -p.w;
+    p.x = -p.x;
+    p.y = -p.y;
+    p.z = -p.z;
+    cosHalfAngle = -cosHalfAngle;
+  }
+
+  float q_weight, p_weight;
+
+  if(cosHalfAngle < 0.99f)
+  {
+    float halfAngle = acos(cosHalfAngle);
+    float sinHalfAngle = sin(halfAngle);
+    float oneOverSinHalfAngle = 1.0f / sinHalfAngle;
+    q_weight = sin(halfAngle * (1.0f - t)) * oneOverSinHalfAngle;
+    p_weight = sin(halfAngle * t) * oneOverSinHalfAngle;
+  }
+  else
+  {
+    q_weight = 1.0f - t;
+    p_weight = t;
+  }
+
   Quaternion result(
     q_weight * q.w + p_weight * p.w,
     q_weight * q.x + p_weight * p.x,
     q_weight * q.y + p_weight * p.y,
     q_weight * q.z + p_weight * p.z
   );
-  
+
   result.normalize();
-  
+
   return result;
 }
 
@@ -157,3 +206,11 @@ void Quaternion::printQuaternion(char *text, int enter)
     Serial.print("\t");
   }
 }
+
+void Quaternion::setValues(float w, float x, float y, float z) {
+  this -> w = w;
+  this -> x = x;
+  this -> y = y;
+  this -> z = z;
+}
+
