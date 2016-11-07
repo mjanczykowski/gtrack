@@ -9,7 +9,10 @@
 #include "median.h"
 #include <math.h>
 #include <inttypes.h>
-#include <Wire.h>
+//#include <Wire.h>
+#include <I2CDevice.h>
+
+inline void rescale_mag(float *mag);
 
 //=========================================================================================================================================================
 // CONSTANTS
@@ -79,8 +82,8 @@ void disable_mpu() {
 //=========================================================================================================================================================
 
 void setup() {
-  Wire.begin();
-  TWBR = TWBR_I2C_CLOCKRATE;
+  //Wire.begin();
+  I2CDevice::setBitrate(TWBR_I2C_CLOCKRATE);
   mpuDev.init();
   enable_mpu();
   controller.start();
