@@ -2,7 +2,7 @@
 
 #define USE_I2CDEVLIB
 
-#ifdef USE_I2CDEVLIB
+/*#ifdef USE_I2CDEVLIB
 
 #include "../I2Cdev/I2Cdev.h"
 
@@ -10,11 +10,15 @@
 
 #include "../Wire/Wire.h"
 
-#endif
+#endif*/
+
+#include "../I2Cdevice/I2CDevice.h"
 
 _EXTERN_ATTRIB int shim_i2c_write(unsigned char slave_addr, unsigned char reg_addr,unsigned char length, unsigned char const *data) {
 
-#ifdef USE_I2CDEVLIB
+	return (I2CDevice::writeBytes(slave_addr,reg_addr,length,(uint8_t *)data) ? 0 : -1); // return 0 on success
+
+/*#ifdef USE_I2CDEVLIB
 
 	return (I2Cdev::writeBytes(slave_addr,reg_addr,length,(uint8_t *)data) ? 0 : -1); // return 0 on success
 	
@@ -28,12 +32,13 @@ _EXTERN_ATTRIB int shim_i2c_write(unsigned char slave_addr, unsigned char reg_ad
 	Wire.endTransmission();
     return 0;	
 
-#endif	
+#endif*/
 	
 }
 
 _EXTERN_ATTRIB int shim_i2c_read(unsigned char slave_addr, unsigned char reg_addr,unsigned char length, unsigned char *data) {
-#ifdef USE_I2CDEVLIB
+	return (I2CDevice::readBytes(slave_addr,reg_addr,length,(uint8_t *)data) ? 0 : -1); // return 0 on success
+/*#ifdef USE_I2CDEVLIB
 
 	return (I2Cdev::readBytes(slave_addr,reg_addr,length,(uint8_t *)data) ? 0 : -1); // return 0 on success
 
@@ -65,7 +70,7 @@ _EXTERN_ATTRIB int shim_i2c_read(unsigned char slave_addr, unsigned char reg_add
 	
 	return (count == length);
 	
-#endif
+#endif*/
 	
 }
 

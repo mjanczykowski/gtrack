@@ -3,7 +3,7 @@
  * (C) 2016 Michał Ciołczyk, Michał Janczykowski
  */
 
-#include <I2Cdev.h>
+#include <I2CDevice.h>
 
 extern "C" {
 #include <inv_mpu.h>
@@ -76,16 +76,16 @@ void MPU9250Device::getMagnetometer(float *values) {
 }
 
 void MPU9250Device::resetFIFO() {
-  I2Cdev::writeBit(MPU_ADDRESS, MPU_USERCTRL_REG, MPU_USERCTRL_FIFO_RESET_BIT, true);
+  I2CDevice::writeBit(MPU_ADDRESS, MPU_USERCTRL_REG, MPU_USERCTRL_FIFO_RESET_BIT, TRUE);
 }
 
 uint8_t MPU9250Device::getMPUStatus() {
-  I2Cdev::readByte(MPU_ADDRESS, MPU_INT_STATUS_REG, buffer);
+  I2CDevice::readByte(MPU_ADDRESS, MPU_INT_STATUS_REG, buffer);
   return buffer[0];
 }
 
 uint16_t MPU9250Device::getFIFOCount() {
-  I2Cdev::readBytes(MPU_ADDRESS, MPU_FIFO_COUNTH_REG, MPU_FIFO_COUNT_LEN, buffer);
+  I2CDevice::readBytes(MPU_ADDRESS, MPU_FIFO_COUNTH_REG, MPU_FIFO_COUNT_LEN, buffer);
   return (((uint16_t) buffer[0]) << 8) | buffer[1];
 }
 
