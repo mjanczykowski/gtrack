@@ -8,8 +8,6 @@ I2CDevice::I2CDevice() {}
 void I2CDevice::setBitrate(uint8_t bitrate) {
 	/* Sets the bitrate */
 	TWBR = bitrate;
-	if(TWBR < 11) return FALSE;
-	return TRUE;
 }
 
 void I2CDevice::beginTransmission(uint8_t address, uint8_t isWrite) {
@@ -26,7 +24,7 @@ void I2CDevice::beginTransmission(uint8_t address, uint8_t isWrite) {
 	 * Check value of TWI Status Register. Mask prescaler bits.
 	 */
 	twst = TWSR & 0xF8;
-	if ((twst != TWI_START) && (twst != TWI_REP_START)) return FALSE;
+	if ((twst != TWI_START) && (twst != TWI_REP_START)) return;
 	/*
 	 * Send device address
 	 */
@@ -40,8 +38,8 @@ void I2CDevice::beginTransmission(uint8_t address, uint8_t isWrite) {
 	 * Check value of TWI Status Register. Mask prescaler bits.
 	 */
 	twst = TWSR & 0xF8;
-	if ((twst != TWI_MTX_ADR_ACK) && (twst != TWI_MRX_ADR_ACK)) return FALSE;
-	return TRUE;
+	if ((twst != TWI_MTX_ADR_ACK) && (twst != TWI_MRX_ADR_ACK)) return;
+	return;
 }
 
 void I2CDevice::endTransmission(){

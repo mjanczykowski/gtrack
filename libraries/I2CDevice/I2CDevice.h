@@ -67,9 +67,9 @@ class I2CDevice {
 		
 		static void beginTransmission(uint8_t addr, uint8_t isWrite);
 		static void endTransmission();
-		static uint8_t I2CDevice::write(uint8_t byte);
-		static uint8_t I2CDevice::readNextByte();
-		static uint8_t I2CDevice::readLastByte();
+		static uint8_t write(uint8_t byte);
+		static uint8_t readNextByte();
+		static uint8_t readLastByte();
 };
 
 #endif
