@@ -25,9 +25,9 @@
 
 #define CORRECTION_VECTOR_EEPROM_ADDRESS    0
 
-#define MAG_OFFSET_X                        -33.0
-#define MAG_OFFSET_Y                        -56.0
-#define MAG_OFFSET_Z                        60.0
+#define MAG_OFFSET_X                        132
+#define MAG_OFFSET_Y                        224
+#define MAG_OFFSET_Z                        -240
 
 
 struct SVector {
@@ -49,7 +49,7 @@ class MPU9250Device {
   void getMagnetometer(float *values);
   
   /* raw values without hard-iron correction */
-  void getRawMagnetometer(float *values);
+  void getRawMagnetometer(short *values);
 
   void updateCorrectionVector(SVector newValues);
 
