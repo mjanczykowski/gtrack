@@ -4,6 +4,7 @@
  */
 
 #include <I2Cdev.h>
+#include <EEPROM.h>
 
 extern "C" {
 #include <inv_mpu.h>
@@ -11,6 +12,18 @@ extern "C" {
 }
 
 #include "mpu9250.h"
+
+
+
+MPU9250Device::MPU9250Device() {
+  SVector cv;
+  EEPROM.get(CORRECTION_VECTOR_EEPROM_ADDRESS, cv);
+//  Serial.println(sizeof(this->correctionVector));
+  this->correctionVector = cv;
+  this->correctionVector.x = MAG_OFFSET_X;
+  this->correctionVector.y = MAG_OFFSET_Y;
+  this->correctionVector.z = MAG_OFFSET_Z;
+}
 
 void MPU9250Device::init() {
   mpu_init(&this->revision);
@@ -37,6 +50,13 @@ void MPU9250Device::init() {
 
   dmp_enable_feature(dmp_features);
   dmp_set_fifo_rate(DEFAULT_MPU_HZ);
+
+  // load hard-iron correction vector from EEPROM
+//  SVector cv;
+//  EEPROM.get(CORRECTION_VECTOR_EEPROM_ADDRESS, cv);
+//  Serial.println(sizeof(this->correctionVector));
+//  this->correctionVector = cv;
+//  this->correctionVector.z = 0;
 }
 
 void MPU9250Device::enable() {
@@ -65,14 +85,37 @@ bool MPU9250Device::getQuaternion(Quaternion *quaternion, volatile bool *hasMore
 }
 
 void MPU9250Device::getMagnetometer(float *values) {
-  unsigned char magSampled;
   short mag[3];
-  magSampled  = mpu_get_compass_reg(mag);
+  unsigned char magSampled = mpu_get_compass_reg(mag);
+  if(magSampled == 0) {
+    values[0] = (float)(mag[0] + this->correctionVector.x) / MAG_SCALEFACTOR;
+    values[1] = (float)(mag[1] + this->correctionVector.y) / MAG_SCALEFACTOR;
+    values[2] = (float)(mag[2] + this->correctionVector.z) / MAG_SCALEFACTOR;
+  }
+//  SVector cv;
+//  EEPROM.get(CORRECTION_VECTOR_EEPROM_ADDRESS, cv);
+//  Serial.print(this->correctionVector.x);
+//  Serial.print("\t");
+//  Serial.print(this->correctionVector.y);
+//  Serial.print("\t");
+//  Serial.println(this->correctionVector.z);
+}
+
+void MPU9250Device::getRawMagnetometer(float *values) {
+  short mag[3];
+  unsigned char magSampled = mpu_get_compass_reg(mag);
   if(magSampled == 0) {
     values[0] = (float)mag[0] / MAG_SCALEFACTOR;
     values[1] = (float)mag[1] / MAG_SCALEFACTOR;
     values[2] = (float)mag[2] / MAG_SCALEFACTOR;
   }
+}
+
+void MPU9250Device::updateCorrectionVector(SVector newValues) {
+//  Serial.println(newValues.x);
+//  EEPROM.put(CORRECTION_VECTOR_EEPROM_ADDRESS, newValues);
+  this->correctionVector = newValues;
+//  Serial.println(this->correctionVector.x);
 }
 
 void MPU9250Device::resetFIFO() {
