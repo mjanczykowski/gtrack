@@ -108,6 +108,7 @@ void loop() {
   if(Serial.available() > 0) {
     char command = Serial.read();
     if('c' == command && !calibrationMode) {
+      Serial.println("Starting calibration. Rotate device in all possible directions for 30 seconds to collect as diverse samples as possible.");
       calibrationStartTime = currentTime;
       calibrationMode = true;
     }
@@ -116,6 +117,7 @@ void loop() {
   if(calibrationMode) {
     if(currentTime - calibrationStartTime > CALIBRATION_TIME_US) {
       calibrationMode = false;
+      Serial.println("Calibration finished.");
 
       Matrix.Invert((float*)calib_XtX, 4);
 
