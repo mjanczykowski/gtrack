@@ -22,6 +22,8 @@
 
 #define HEADING_FILTER_MULTIPLIER           ( RAD_TO_DEG * 100.0 )   //filter stores short values - degrees * 100
 
+#define RAD_TO_SHORT_RANGE                  10430.06 //= 64k / (2*M_PI)
+
 //=========================================================================================================================================================
 // GLOBAL VARIABLES
 //=========================================================================================================================================================
@@ -115,6 +117,7 @@ void loop() {
   }
 
   if(calibrationMode) {
+    // calibration based on http://cache.freescale.com/files/sensors/doc/app_note/AN4246.pdf
     if(currentTime - calibrationStartTime > CALIBRATION_TIME_US) {
       calibrationMode = false;
       Serial.println("Calibration finished.");
@@ -182,6 +185,8 @@ void loop() {
 
   yaw += drift_correction;
 
+  heading = -heading; //heading has opposite sign to yaw
+
   if(heading > yaw)
   {
     if(drift_correction_counter < 0)
@@ -210,9 +215,9 @@ void loop() {
   long newX, newY, newZ;
 
   // scale to range -32767 to 32767
-  newX = pitch * 10430.06; //  = 64k / (2*M_PI)
-  newY = roll * 10430.06;
-  newZ = yaw * 10430.06;
+  newX = pitch * RAD_TO_SHORT_RANGE;
+  newY = roll * RAD_TO_SHORT_RANGE;
+  newZ = yaw * RAD_TO_SHORT_RANGE;
 
   short joyX = constrain(newX, -32767, 32767);
   short joyY = constrain(newY, -32767, 32767);
