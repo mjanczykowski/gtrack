@@ -7,42 +7,39 @@
 #include "quaternion.h"
 #include "gamecontroller.h"
 #include "median.h"
-#include <math.h>
 #include <inttypes.h>
 #include <Wire.h>
+#include <MatrixMath.h>
 
 //=========================================================================================================================================================
 // CONSTANTS
 //=========================================================================================================================================================
 
-#define MIN_DT                              100      //in us
-#define W_RP                                1.0
-#define W_Y                                 1.0
-#define K_P                                 1.0
-#define K_I                                 0.0
 #define TWBR_I2C_CLOCKRATE                  12       //= 12400 kHz (200 kHz if 8 MHz processor)
 
-#define MAG_OFFSET_X                        -33.0
-#define MAG_OFFSET_Y                        -56.0
-#define MAG_OFFSET_Z                        60.0
-#define MAG_SPREAD_X                        94.0
-#define MAG_SPREAD_Y                        96.0
-#define MAG_SPREAD_Z                        96.0
+#define CALIBRATION_TIME_US                 30000000 //30s
+#define CALIBRATION_SAMPLE_DT_MS            30       //30ms
+
+#define HEADING_FILTER_MULTIPLIER           ( RAD_TO_DEG * 100.0 )   //filter stores short values - degrees * 100
+
+#define RAD_TO_SHORT_RANGE                  10430.06 //= 64k / (2*M_PI)
 
 //=========================================================================================================================================================
 // GLOBAL VARIABLES
 //=========================================================================================================================================================
 
-//Time related values
-unsigned long currentTime, newTime, dt;
+// calibration mode
+boolean calibrationMode = false;
+unsigned long calibrationStartTime;
+float calib_XtX[4][4];
+float calib_XtY[4];
+//
 
-//Quaternion to send to computer and converted values
-Quaternion q;
-uint16_t w, x, y, z;
+//Time related values
+unsigned long currentTime;
 
 //Values from MPU
-float mag[3];
-float initialHeading, heading;
+float initialHeading;
 
 //Drift
 float drift_correction = 0.0;           // current drift correction applied in each iteration
@@ -60,18 +57,14 @@ MPU9250Device mpuDev;
 GameController controller;
 
 //Median filters
-MedianFilter yawFilter(3), pitchFilter(3), rollFilter(3), headingFilter(49);
+MedianFilter headingFilter(49);
 
 //=========================================================================================================================================================
 // MPU RELATED CODE
 //=========================================================================================================================================================
 
-void enable_mpu() {
+inline void enable_mpu() {
   mpuDev.enable();
-}
-
-void disable_mpu() {
-  mpuDev.disable();
 }
 
 //=========================================================================================================================================================
@@ -84,25 +77,27 @@ void setup() {
   mpuDev.init();
   enable_mpu();
   controller.start();
+  Serial.begin(115200);
 
+  Quaternion q;
   //set initial heading
   mpuDev.getQuaternion(&q, &newValues);
   
   float yaw, pitch, roll;
   q.getYawPitchRoll(&yaw, &pitch, &roll);
 
-  int i;
-  for(i = 0; i < 50; i++) {
+  float mag[3];
+  for(int i = 0; i < 50; ++i) {
     mpuDev.getMagnetometer(mag);
-    rescale_mag(mag); //compensate hard-iron
     initialHeading = atan2(mag[2] * sin(roll) - mag[1] * cos(roll), mag[0] * cos(pitch) + mag[1] * sin(pitch) * sin(roll) + mag[2] * sin(pitch) * cos(roll)); //result in range (-M_PI, +M_PI)
   
-    headingFilter.addMeasurement((short)(initialHeading * RAD_TO_DEG * 100.0));
+    headingFilter.addMeasurement((short)(initialHeading * HEADING_FILTER_MULTIPLIER));
     delay(10);
   }
+  
   short headingFiltered;
   headingFilter.getFilteredMeasurement(&headingFiltered);
-  initialHeading = (float)headingFiltered * 0.01 *DEG_TO_RAD;
+  initialHeading = (float)headingFiltered / HEADING_FILTER_MULTIPLIER;
 }
 
 //=========================================================================================================================================================
@@ -110,21 +105,70 @@ void setup() {
 //=========================================================================================================================================================
 
 void loop() {
-  newTime = micros();
-  dt = newTime - currentTime;
-  currentTime = newTime;
+  currentTime = micros();
+  
+  if(Serial.available() > 0) {
+    char command = Serial.read();
+    if('c' == command && !calibrationMode) {
+      Serial.println("Starting calibration. Rotate device in all possible directions for 30 seconds to collect as diverse samples as possible.");
+      calibrationStartTime = currentTime;
+      calibrationMode = true;
+    }
+  }
 
+  if(calibrationMode) {
+    // calibration based on http://cache.freescale.com/files/sensors/doc/app_note/AN4246.pdf
+    if(currentTime - calibrationStartTime > CALIBRATION_TIME_US) {
+      calibrationMode = false;
+      Serial.println("Calibration finished.");
+
+      Matrix.Invert((float*)calib_XtX, 4);
+
+      float beta[4];
+      Matrix.Multiply((float*)calib_XtX, (float*)calib_XtY, 4, 4, 1, (float*) beta);
+      
+      SVector V;
+      V.x = (short)(beta[0] * 0.5);
+      V.y = (short)(beta[1] * 0.5);
+      V.z = (short)(beta[2] * 0.5);
+      
+      mpuDev.updateCorrectionVector(V);
+      return;
+    }
+    
+    delay(CALIBRATION_SAMPLE_DT_MS);
+
+    short raw_mag[4];
+    raw_mag[3] = 1; //used for calibration
+    
+    mpuDev.getRawMagnetometer(raw_mag); 
+
+    // update calib_XtX matrix and calib_XtY vector
+    long mag_dot_mag = (long)raw_mag[0]*(long)raw_mag[0] + (long)raw_mag[1]*(long)raw_mag[1] + (long)raw_mag[2]*(long)raw_mag[2];
+    
+    for(int i = 0; i < 4; ++i) {
+      for(int j = 0; j < 4; ++j) {
+        calib_XtX[i][j] += (long)raw_mag[i] * (long)raw_mag[j];
+      }
+      calib_XtY[i] += (long)raw_mag[i] * mag_dot_mag;
+    }
+    return;
+  }
+
+  //end calibration
+
+  Quaternion q;
   if(!mpuDev.getQuaternion(&q, &newValues)) {
     return;
   }
   
   float yaw, pitch, roll;
   q.getYawPitchRoll(&yaw, &pitch, &roll);
-  
-  mpuDev.getMagnetometer(mag);
-  rescale_mag(mag); //compensate hard-iron
 
-  heading = atan2(mag[2] * sin(roll) - mag[1] * cos(roll), mag[0] * cos(pitch) + mag[1] * sin(pitch) * sin(roll) + mag[2] * sin(pitch) * cos(roll)); //result in range (-M_PI, +M_PI)
+  float mag[3];
+  mpuDev.getMagnetometer(mag);
+
+  float heading = atan2(mag[2] * sin(roll) - mag[1] * cos(roll), mag[0] * cos(pitch) + mag[1] * sin(pitch) * sin(roll) + mag[2] * sin(pitch) * cos(roll)); //result in range (-M_PI, +M_PI)
   
   heading -= initialHeading;
 
@@ -133,13 +177,15 @@ void loop() {
   else if(heading > M_PI)
     heading -= 2 * M_PI;
 
-  headingFilter.addMeasurement((short)(heading * RAD_TO_DEG * 100.0));
+  headingFilter.addMeasurement((short)(heading * HEADING_FILTER_MULTIPLIER));
   short headingFiltered;
   headingFilter.getFilteredMeasurement(&headingFiltered);
 
-  heading = (float)headingFiltered * 0.01 *DEG_TO_RAD;
-  
+  heading = (float)headingFiltered / HEADING_FILTER_MULTIPLIER;
+
   yaw += drift_correction;
+
+  heading = -heading; //heading has opposite sign to yaw
 
   if(heading > yaw)
   {
@@ -166,23 +212,16 @@ void loop() {
 
   drift_correction += drift_correction_counter * 0.00001;
   
-  float newX, newY, newZ;
+  long newX, newY, newZ;
 
   // scale to range -32767 to 32767
-  newX = pitch * 10430.06; //  = 64k / (2*M_PI)
-  newY = roll * 10430.06;
-  newZ = yaw * 10430.06;
-    
-  short joyX = constrain((long)newX, -32767, 32767);
-  short joyY = constrain((long)newY, -32767, 32767);
-  short joyZ = constrain((long)newZ, -32767, 32767);
+  newX = pitch * RAD_TO_SHORT_RANGE;
+  newY = roll * RAD_TO_SHORT_RANGE;
+  newZ = yaw * RAD_TO_SHORT_RANGE;
 
-//  yawFilter.addMeasurement(joyX);
-//  pitchFilter.addMeasurement(joyY);
-//  rollFilter.addMeasurement(joyZ);
-//  yawFilter.getFilteredMeasurement(&joyX);
-//  pitchFilter.getFilteredMeasurement(&joyY);
-//  rollFilter.getFilteredMeasurement(&joyZ);
+  short joyX = constrain(newX, -32767, 32767);
+  short joyY = constrain(newY, -32767, 32767);
+  short joyZ = constrain(newZ, -32767, 32767);
 
   controller.setXAxisRotation(joyX);
   controller.setYAxisRotation(joyY);
@@ -190,8 +229,3 @@ void loop() {
   controller.sendReport();
 }
 
-inline void rescale_mag(float *mag) {
-  mag[0] += MAG_OFFSET_X;
-  mag[1] = (mag[1] + MAG_OFFSET_Y) / MAG_SPREAD_Y * MAG_SPREAD_X;
-  mag[2] = (mag[2] + MAG_OFFSET_Z) / MAG_SPREAD_Z * MAG_SPREAD_Y;
-}

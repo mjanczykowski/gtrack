@@ -23,17 +23,40 @@
 #define MPU_FIFO_COUNTH_REG         0x72
 #define MPU_FIFO_COUNT_LEN          2
 
+#define CORRECTION_VECTOR_EEPROM_ADDRESS    0
+
+#define MAG_OFFSET_X                        132
+#define MAG_OFFSET_Y                        224
+#define MAG_OFFSET_Z                        -240
+
+
+struct SVector {
+  int16_t x;
+  int16_t y;
+  int16_t z;
+};
+
 class MPU9250Device {
   public:
+  MPU9250Device();
+  
   void init();
   void enable();
   void disable();
   bool getQuaternion(Quaternion *quaternion, volatile bool *hasMoreMeasurements);
+  
+  /* returns values corrected for hard-iron error */
   void getMagnetometer(float *values);
+  
+  /* raw values without hard-iron correction */
+  void getRawMagnetometer(short *values);
+
+  void updateCorrectionVector(SVector newValues);
 
   private:
   unsigned char revision;
   uint8_t buffer[2];
+  SVector correctionVector;
   bool checkFIFO();
   void resetFIFO();
   uint8_t getMPUStatus();
