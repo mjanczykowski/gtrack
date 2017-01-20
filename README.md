@@ -1,6 +1,13 @@
-gtrack
-======
+# Gtrack
 
-gtrack2joy
------
-The console app uses VJoy Virtual Joystick (http://www.headsoft.com.au/index.php?category=vjoy) driver to translate data sent from Arduino module via USB Serial to virtual joystick. First install the included driver (vjoy directory). To run the app, copy vjoy32.dll and vjoy64.dll to its exe's directory. The app has to be run as an administrator.
+Gtrack is a head tracker that tracks the user's head orientation and puts values to the user's PC as joystick's output and can be used as TrackIR device in computer games.
+
+## Directories
+
+* `sketch` - Arduino program
+* `libraries` - Arduino libs needed to compile the project
+
+## Hardware
+
+* [Arduino pro micro](https://www.sparkfun.com/products/12640)
+* [MPU9250](https://www.invensense.com/products/motion-tracking/9-axis/mpu-9250/)
